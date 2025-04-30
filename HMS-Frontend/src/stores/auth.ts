@@ -1,3 +1,4 @@
+// stores/auth.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { apiClient } from '../services/api';
@@ -12,6 +13,20 @@ interface User {
   lastName: string;
   role: UserRole;
   profilePicture?: string;
+}
+
+interface CreateDoctorDto {
+  user: string; // Add user field for the user ID
+  specialization: string;
+  licenseNumber?: string;
+  qualifications?: string[];
+  experience?: number;
+  bio?: string;
+  officeAddress?: string;
+  officePhone?: string;
+  consultationFee?: number;
+  isAvailableForAppointments?: boolean;
+  workingHours?: Record<string, any>;
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -49,19 +64,6 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       loading.value = false;
     }
-  }
-
-  async function redirectBasedOnRole() {
-    if (!user.value) return '/login';
-    
-    const role = user.value.role.toLowerCase();
-    const routes: Record<UserRole, string> = {
-      admin: '/admin',
-      doctor: '/doctor',
-      patient: '/patient'
-    };
-    
-    return routes[role] || '/';
   }
 
   async function register({
@@ -102,16 +104,53 @@ export const useAuthStore = defineStore('auth', () => {
       return true;
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to register';
-      throw err; // rethrow for handleRegister to catch
+      throw err;
     } finally {
       loading.value = false;
     }
   }
 
+  async function upgradeToDoctor(doctorData: CreateDoctorDto) {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await apiClient.post('/auth/upgrade-to-doctor', doctorData, {
+        headers: { Authorization: `Bearer ${token.value}` },
+      });
+      const { user: userData } = response.data;
+
+      user.value = userData; // Update user with new role ('doctor')
+      localStorage.setItem('token', token.value!); // Ensure token persists
+
+      return true;
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to register as doctor';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function redirectBasedOnRole() {
+    if (!user.value) return '/login';
+    
+    const role = user.value.role.toLowerCase();
+    const routes: Record<UserRole, string> = {
+      admin: '/admin',
+      doctor: '/doctor',
+      patient: '/patient',
+    };
+    
+    return routes[role] || '/';
+  }
+
   async function logout() {
     try {
       if (token.value) {
-        await apiClient.post('/auth/logout');
+        await apiClient.post('/auth/logout', null, {
+          headers: { Authorization: `Bearer ${token.value}` },
+        });
       }
     } catch (err) {
       console.error('Logout API error:', err);
@@ -131,18 +170,38 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
 
     try {
-      const response = await apiClient.get('/auth/me');
+      const response = await apiClient.get('/auth/profile', {
+        headers: { Authorization: `Bearer ${token.value}` },
+      });
       user.value = response.data;
       return true;
     } catch (err: any) {
       console.error('Auth check error:', err);
 
       if (err.response?.status === 401) {
-        token.value = null;
-        refreshToken.value = null;
-        user.value = null;
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        try {
+          const response = await apiClient.post('/auth/refresh', {
+            refreshToken: refreshToken.value,
+          });
+          token.value = response.data.accessToken;
+          refreshToken.value = response.data.refreshToken;
+          localStorage.setItem('token', token.value);
+          localStorage.setItem('refreshToken', refreshToken.value!);
+
+          // Retry profile fetch
+          const retryResponse = await apiClient.get('/auth/profile', {
+            headers: { Authorization: `Bearer ${token.value}` },
+          });
+          user.value = retryResponse.data;
+          return true;
+        } catch (refreshErr) {
+          token.value = null;
+          refreshToken.value = null;
+          user.value = null;
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          return false;
+        }
       }
 
       return false;
@@ -156,7 +215,9 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
 
     try {
-      const response = await apiClient.put('/users/profile', userData);
+      const response = await apiClient.put('/users/profile', userData, {
+        headers: { Authorization: `Bearer ${token.value}` },
+      });
       user.value = response.data;
       return true;
     } catch (err: any) {
@@ -177,6 +238,7 @@ export const useAuthStore = defineStore('auth', () => {
     userRole,
     login,
     register,
+    upgradeToDoctor,
     logout,
     checkAuth,
     updateProfile,

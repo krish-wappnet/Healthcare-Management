@@ -16,7 +16,8 @@ const DoctorDashboard = () => import('../views/doctor/DashboardView.vue')
 const DoctorPatients = () => import('../views/doctor/PatientsView.vue')
 const DoctorAppointments = () => import('../views/doctor/AppointmentsView.vue')
 const DoctorConsultations = () => import('../views/doctor/ConsultationsView.vue')
-const PatientDetail = () => import('../views/doctor/PatientDetailView.vue')
+const RoleSelection = () => import('../views/auth/RoleSelection.vue')
+const DoctorRegistration = () => import('../views/auth/DoctorRegistration.vue')
 
 // Patient routes
 const PatientDashboard = () => import('../views/patient/DashboardView.vue')
@@ -42,7 +43,9 @@ const router = createRouter({
       component: Register,
       meta: { requiresAuth: false }
     },
+    { path: '/role-selection', component: RoleSelection },
 
+  { path: '/doctor-registration', component: DoctorRegistration },
     // Admin routes
     {
       path: '/admin',
@@ -94,12 +97,12 @@ const router = createRouter({
       component: DoctorConsultations,
       meta: { requiresAuth: true, role: 'doctor' }
     },
-    {
-      path: '/doctor/patients/:id',
-      name: 'patient-detail',
-      component: PatientDetail,
-      meta: { requiresAuth: true, role: 'doctor' }
-    },
+    // {
+    //   path: '/doctor/patients/:id',
+    //   name: 'patient-detail',
+    //   component: PatientDetail,
+    //   meta: { requiresAuth: true, role: 'doctor' }
+    // },
 
     // Patient routes
     {
