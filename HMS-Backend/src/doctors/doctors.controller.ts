@@ -29,7 +29,7 @@ export class DoctorsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.DOCTOR)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a doctor profile' })
   @ApiResponse({ status: 201, description: 'Doctor profile created successfully' })

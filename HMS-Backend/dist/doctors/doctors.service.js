@@ -18,7 +18,6 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const doctor_schema_1 = require("./schemas/doctor.schema");
 const users_service_1 = require("../users/users.service");
-const user_roles_enum_1 = require("../common/enums/user-roles.enum");
 let DoctorsService = class DoctorsService {
     constructor(doctorModel, usersService) {
         this.doctorModel = doctorModel;
@@ -26,10 +25,6 @@ let DoctorsService = class DoctorsService {
     }
     async create(createDoctorDto) {
         try {
-            const user = await this.usersService.findOne(createDoctorDto.user);
-            if (user.role !== user_roles_enum_1.UserRole.DOCTOR) {
-                throw new common_1.BadRequestException('User must have a doctor role');
-            }
             const existingDoctor = await this.doctorModel.findOne({ user: createDoctorDto.user }).exec();
             if (existingDoctor) {
                 throw new common_1.BadRequestException('Doctor profile already exists for this user');

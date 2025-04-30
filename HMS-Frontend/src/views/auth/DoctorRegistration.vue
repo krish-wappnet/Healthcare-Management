@@ -326,184 +326,226 @@
   </template>
   
   <script setup lang="ts">
-  import { reactive, ref, onMounted, computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useAuthStore } from '../../stores/auth';
-  import { useToast } from 'primevue/usetoast';
-  
-  const router = useRouter();
-  const authStore = useAuthStore();
-  const toast = useToast();
-  
-  const isAuthenticated = computed(() => authStore.isAuthenticated && !!authStore.user);
-  
-  const form = reactive({
-    user: '',
-    specialization: '',
-    licenseNumber: '' as string | undefined,
-    qualifications: [] as string[],
-    experience: undefined as number | undefined,
-    bio: '' as string | undefined,
-    officeAddress: '' as string | undefined,
-    officePhone: '' as string | undefined,
-    consultationFee: undefined as number | undefined,
-    isAvailableForAppointments: true,
-    workingHours: {} as Record<string, any>,
-  });
-  
-  const errors = reactive({
-    user: '',
-    specialization: '',
-    licenseNumber: '',
-    qualifications: '',
-    experience: '',
-    bio: '',
-    officeAddress: '',
-    officePhone: '',
-    consultationFee: '',
-    isAvailableForAppointments: '',
-    workingHours: '',
-  });
-  
-  const qualificationsInput = ref('');
-  const isLoading = ref(false);
-  
-  // Check authentication and populate user ID
-  onMounted(async () => {
-    console.log('onMounted: Checking authentication');
-    console.log('authStore.isAuthenticated:', authStore.isAuthenticated);
-    console.log('authStore.user:', authStore.user);
-    console.log('authStore.token:', authStore.token);
-  
-    // Attempt to refresh auth if token exists but user is null
-    if (authStore.token && !authStore.user) {
-      console.log('Attempting to refresh auth with checkAuth');
-      const authSuccess = await authStore.checkAuth();
-      console.log('checkAuth result:', authSuccess);
-      console.log('authStore.user after checkAuth:', authStore.user);
-    }
-  
-    if (!authStore.isAuthenticated || !authStore.user) {
-      console.log('Redirecting to /login');
-      router.push('/login');
-    } else {
-      form.user = authStore.user.id;
-      console.log('Set form.user:', form.user);
-    }
-  });
-  
-  const clearError = (field: keyof typeof errors) => {
-    errors[field] = '';
-  };
-  
-  const validateForm = () => {
-    console.log('Validating form');
-    let isValid = true;
-  
-    if (!form.user) {
-      errors.user = 'User ID is required';
-      isValid = false;
-    }
-  
-    if (!form.specialization.trim()) {
-      errors.specialization = 'Specialization is required';
-      isValid = false;
-    }
-  
-    if (form.experience && form.experience < 0) {
-      errors.experience = 'Experience cannot be negative';
-      isValid = false;
-    }
-  
-    if (form.consultationFee && form.consultationFee < 0) {
-      errors.consultationFee = 'Consultation fee cannot be negative';
-      isValid = false;
-    }
-  
-    if (form.officeAddress && !form.officeAddress.trim()) {
-      errors.officeAddress = 'Office address cannot be empty';
-      isValid = false;
-    }
-  
-    if (form.officePhone && !/^\+?[1-9]\d{1,14}$/.test(form.officePhone)) {
-      errors.officePhone = 'Invalid phone number format';
-      isValid = false;
-    }
-  
-    console.log('Validation errors:', errors);
-    console.log('isValid:', isValid);
-    return isValid;
-  };
-  
-  const handleDoctorRegistration = async () => {
-    console.log('handleDoctorRegistration: Form submitted');
-    console.log('Form data:', form);
-    console.log('isLoading:', isLoading.value);
-  
-    if (!validateForm()) {
-      console.log('Validation failed, exiting');
-      toast.add({
-        severity: 'error',
-        summary: 'Validation Error',
-        detail: 'Please fill out all required fields correctly',
-        life: 5000,
-      });
-      return;
-    }
-  
-    isLoading.value = true;
-    console.log('Set isLoading to true');
-  
+import { reactive, ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '../../stores/auth';
+import { useToast } from 'primevue/usetoast';
+import axios from 'axios';
+import { jwtDecode } from 'jwt-decode'; // Import jwt-decode
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
+
+const router = useRouter();
+const authStore = useAuthStore();
+const toast = useToast();
+
+const isAuthenticated = computed(() => authStore.isAuthenticated && !!authStore.token);
+
+const form = reactive({
+  user: '',
+  specialization: '',
+  licenseNumber: '' as string | undefined,
+  qualifications: [] as string[],
+  experience: undefined as number | undefined,
+  bio: '' as string | undefined,
+  officeAddress: '' as string | undefined,
+  officePhone: '' as string | undefined,
+  consultationFee: undefined as number | undefined,
+  isAvailableForAppointments: true,
+  workingHours: {} as Record<string, any>,
+});
+
+const errors = reactive({
+  user: '',
+  specialization: '',
+  licenseNumber: '',
+  qualifications: '',
+  experience: '',
+  bio: '',
+  officeAddress: '',
+  officePhone: '',
+  consultationFee: '',
+  isAvailableForAppointments: '',
+  workingHours: '',
+});
+
+const qualificationsInput = ref('');
+const isLoading = ref(false);
+
+// Check authentication and populate user ID from token
+onMounted(async () => {
+  console.log('onMounted: Checking authentication');
+  console.log('authStore.isAuthenticated:', authStore.isAuthenticated);
+  console.log('authStore.user:', authStore.user);
+  console.log('authStore.token:', authStore.token);
+
+  // Attempt to refresh auth if token exists
+  if (authStore.token && !authStore.user) {
+    console.log('Attempting to refresh auth with checkAuth');
+    const authSuccess = await authStore.checkAuth();
+    console.log('checkAuth result:', authSuccess);
+    console.log('authStore.user after checkAuth:', authStore.user);
+  }
+
+  if (!authStore.isAuthenticated || !authStore.token) {
+    console.log('Redirecting to /login');
+    router.push('/login');
+  } else {
     try {
-      // Convert qualifications input to array
-      form.qualifications = qualificationsInput.value
-        .split(',')
-        .map((q) => q.trim())
-        .filter((q) => q);
-      console.log('Processed qualifications:', form.qualifications);
-  
-      const payload = {
-        user: form.user,
-        specialization: form.specialization,
-        licenseNumber: form.licenseNumber || undefined,
-        qualifications: form.qualifications.length ? form.qualifications : undefined,
-        experience: form.experience,
-        bio: form.bio || undefined,
-        officeAddress: form.officeAddress || undefined,
-        officePhone: form.officePhone || undefined,
-        consultationFee: form.consultationFee,
-        isAvailableForAppointments: form.isAvailableForAppointments,
-        workingHours: form.workingHours,
-      };
-      console.log('Calling authStore.upgradeToDoctor with payload:', payload);
-  
-      await authStore.upgradeToDoctor(payload);
-  
-      console.log('API call successful');
-      toast.add({
-        severity: 'success',
-        summary: 'Doctor Registration Successful',
-        detail: 'Your doctor profile has been created successfully!',
-        life: 5000,
-      });
-  
-      const redirectPath = await authStore.redirectBasedOnRole();
-      console.log('Redirecting to:', redirectPath);
-      router.push(redirectPath);
-    } catch (error: any) {
-      console.error('API call failed:', error);
+      // Decode the JWT token to extract the sub field
+      const decoded = jwtDecode<JwtPayload>(authStore.token);
+      form.user = decoded.sub;
+      console.log('Set form.user from token sub:', form.user);
+    } catch (error) {
+      console.error('Failed to decode token:', error);
       toast.add({
         severity: 'error',
-        summary: 'Doctor Registration Failed',
-        detail: error.response?.data?.message || 'An error occurred during doctor registration',
+        summary: 'Authentication Error',
+        detail: 'Invalid authentication token',
         life: 5000,
       });
-    } finally {
-      isLoading.value = false;
-      console.log('Set isLoading to false');
+      router.push('/login');
     }
-  };
-  </script>
+  }
+});
+
+const clearError = (field: keyof typeof errors) => {
+  errors[field] = '';
+};
+
+const validateForm = () => {
+  console.log('Validating form');
+  let isValid = true;
+
+  if (!form.user) {
+    errors.user = 'User ID is required';
+    isValid = false;
+  }
+
+  if (!form.specialization.trim()) {
+    errors.specialization = 'Specialization is required';
+    isValid = false;
+  }
+
+  if (!form.licenseNumber?.trim()) {
+    errors.licenseNumber = 'License number is required';
+    isValid = false;
+  }
+
+  if (!form.experience || form.experience < 0) {
+    errors.experience = 'Valid years of experience is required';
+    isValid = false;
+  }
+
+  if (!form.consultationFee || form.consultationFee < 0) {
+    errors.consultationFee = 'Valid consultation fee is required';
+    isValid = false;
+  }
+
+  if (!form.officeAddress?.trim()) {
+    errors.officeAddress = 'Office address is required';
+    isValid = false;
+  }
+
+  if (!form.officePhone?.trim() || !/^\+?[1-9]\d{1,14}$/.test(form.officePhone)) {
+    errors.officePhone = 'Valid office phone number is required';
+    isValid = false;
+  }
+
+  console.log('Validation errors:', errors);
+  console.log('isValid:', isValid);
+  return isValid;
+};
+
+const handleDoctorRegistration = async () => {
+  console.log('handleDoctorRegistration: Form submitted');
+  console.log('Form data:', form);
+  console.log('isLoading:', isLoading.value);
+
+  if (!validateForm()) {
+    console.log('Validation failed, exiting');
+    toast.add({
+      severity: 'error',
+      summary: 'Validation Error',
+      detail: 'Please fill out all required fields correctly',
+      life: 5000,
+    });
+    return;
+  }
+
+  isLoading.value = true;
+  console.log('Set isLoading to true');
+
+  try {
+    // Convert qualifications input to array
+    form.qualifications = qualificationsInput.value
+      .split(',')
+      .map((q) => q.trim())
+      .filter((q) => q);
+    console.log('Processed qualifications:', form.qualifications);
+
+    // Construct payload matching the backend's expected format
+    const payload = {
+      user: form.user,
+      specialization: form.specialization,
+      licenseNumber: form.licenseNumber,
+      qualifications: form.qualifications.length ? form.qualifications : [],
+      experience: form.experience,
+      bio: form.bio || '',
+      officeAddress: form.officeAddress,
+      officePhone: form.officePhone,
+      consultationFee: form.consultationFee,
+      isAvailableForAppointments: form.isAvailableForAppointments,
+      workingHours: form.workingHours,
+    };
+    console.log('Sending payload to API:', payload);
+
+    // Make POST request to the API
+    const response = await axios.post('http://localhost:3000/doctors', payload, {
+      headers: {
+        Authorization: `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('API response:', response.data);
+    toast.add({
+      severity: 'success',
+      summary: 'Doctor Registration Successful',
+      detail: 'Your doctor profile has been created successfully!',
+      life: 5000,
+    });
+
+    // Refresh authStore to update user role
+    await authStore.checkAuth();
+
+    const redirectPath = await authStore.redirectBasedOnRole();
+    console.log('Redirecting to:', redirectPath);
+    router.push(redirectPath);
+  } catch (error: any) {
+    console.error('API call failed:', error);
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      'An error occurred during doctor registration';
+    toast.add({
+      severity: 'error',
+      summary: 'Doctor Registration Failed',
+      detail: errorMessage,
+      life: 5000,
+    });
+  } finally {
+    isLoading.value = false;
+    console.log('Set isLoading to false');
+  }
+};
+</script>
   
   <style scoped>
   .doctor-registration-container {

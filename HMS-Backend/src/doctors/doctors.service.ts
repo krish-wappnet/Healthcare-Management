@@ -7,7 +7,7 @@ import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { UsersService } from '../users/users.service';
-import { UserRole } from '../common/enums/user-roles.enum';
+
 
 @Injectable()
 export class DoctorsService {
@@ -19,11 +19,11 @@ export class DoctorsService {
   async create(createDoctorDto: CreateDoctorDto): Promise<Doctor> {
     try {
       // Verify user exists and is a doctor
-      const user = await this.usersService.findOne(createDoctorDto.user);
+      // const user = await this.usersService.findOne(createDoctorDto.user);
       
-      if (user.role !== UserRole.DOCTOR) {
-        throw new BadRequestException('User must have a doctor role');
-      }
+      // if (user.role !== UserRole.PATIENT) {
+      //   throw new BadRequestException('User must have a doctor role');
+      // }
       
       // Check if doctor profile already exists
       const existingDoctor = await this.doctorModel.findOne({ user: createDoctorDto.user }).exec();
