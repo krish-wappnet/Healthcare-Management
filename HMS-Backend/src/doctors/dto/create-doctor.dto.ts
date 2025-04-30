@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ApiProperty } from '@nestjs/swagger';
-import { 
-  IsString, 
-  IsOptional, 
-  IsArray, 
-  IsNumber, 
-  IsBoolean, 
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  IsBoolean,
   IsMongoId,
   ValidateNested,
-  IsIn
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -87,7 +88,10 @@ export class CreateDoctorDto {
   @IsOptional()
   experience?: number;
 
-  @ApiProperty({ example: 'Dr. John Doe is a cardiologist with over 10 years of experience...' })
+  @ApiProperty({
+    example:
+      'Dr. John Doe is a cardiologist with over 10 years of experience...',
+  })
   @IsString()
   @IsOptional()
   bio?: string;

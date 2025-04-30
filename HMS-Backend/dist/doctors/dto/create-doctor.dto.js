@@ -107,7 +107,9 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateDoctorDto.prototype, "experience", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Dr. John Doe is a cardiologist with over 10 years of experience...' }),
+    (0, swagger_1.ApiProperty)({
+        example: 'Dr. John Doe is a cardiologist with over 10 years of experience...',
+    }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
