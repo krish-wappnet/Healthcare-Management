@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../common/enums/user-roles.enum';
+import { User } from 'src/users/schemas/user.schema';
 
 @ApiTags('patients')
 @Controller('patients')
@@ -67,7 +68,7 @@ export class PatientsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.DOCTOR)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a patient by ID' })
   @ApiResponse({ status: 200, description: 'Return the patient' })

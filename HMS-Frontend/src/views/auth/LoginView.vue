@@ -257,8 +257,7 @@ const handleLogin = async () => {
       }
 
       showSuccessToast();
-      const redirectPath = await authStore.redirectBasedOnRole();
-      await router.push(redirectPath);
+      return;
     }
   } catch (error: any) {
     handleLoginError(error);

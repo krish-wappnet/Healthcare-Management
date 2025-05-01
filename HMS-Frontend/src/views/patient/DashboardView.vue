@@ -1,17 +1,27 @@
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { patientService, healthDataService, appointmentService } from '../../services/api';
+import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import { useAuthStore } from '../../stores/auth';
+import { apiClient } from '../../services/api';
+import { jwtDecode } from 'jwt-decode';
+import { healthDataService, appointmentService } from '../../services/api';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import ProgressSpinner from 'primevue/progressspinner';
 import HealthDataCard from '../../components/patient/HealthDataCard.vue';
 import VitalSignsChart from '../../components/charts/VitalSignsChart.vue';
 import AppointmentCalendar from '../../components/calendar/AppointmentCalendar.vue';
-import { useAuthStore } from '../../stores/auth';
-import { useRouter } from 'vue-router';
 import dayjs from 'dayjs';
+import Avatar from 'primevue/avatar';
+import Dialog from 'primevue/dialog';
+import Dropdown from 'primevue/dropdown';
+import Calendar from 'primevue/calendar';
+import InputText from 'primevue/inputtext';
+import Textarea from "primevue/textarea";
+import Checkbox from 'primevue/checkbox';
+import Chip from 'primevue/chip';
+import MultiSelect from 'primevue/multiselect';
 
 // Define interfaces for type safety
 interface HealthData {
@@ -35,10 +45,6 @@ interface PatientStats {
   lastCheckup: string | null;
 }
 
-interface TooltipOptions {
-  position: 'top' | 'bottom' | 'left' | 'right';
-}
-
 // State
 const toast = useToast();
 const router = useRouter();
@@ -52,135 +58,247 @@ const stats = ref<PatientStats>({
   upcomingAppointments: 0,
   lastCheckup: null,
 });
+const displayAppointmentModal = ref(false);
+const selectedDoctor = ref(null);
+const doctors = ref([]);
+const patientId = ref<string | null>(null);
+const appointmentForm = ref({
+  patient: patientId.value,
+  doctor: null,
+  date: '',
+  startTime: '',
+  endTime: '',
+  status: 'scheduled',
+  type: 'Video Consultation',
+  reasonForVisit: '',
+  notes: '',
+  symptoms: [],
+  isPaid: false,
+  paymentAmount: 150
+});
 
-// Fetch dashboard data
+const selectedDoctorFee = computed(() => {
+  if (!selectedDoctor.value) return null;
+  const doctor = doctors.value.find(d => d.value === selectedDoctor.value);
+  return doctor ? doctor.doctor.consultationFee : null;
+});
+
+// Methods
+const bookNewAppointment = () => {
+  displayAppointmentModal.value = true;
+  fetchDoctors();
+};
+
+const handleAppointmentSelected = (appointment: Appointment) => {
+  router.push(`/patient/appointments/${appointment.id}`);
+};
+
 const fetchDashboardData = async () => {
   try {
-    // Fetch patient profile (assumed to include stats or used as a base)
-    const profileResponse = await patientService.getCurrentProfile();
-    // If profile includes stats, use them; otherwise, fetch appointments
-    const appointmentsResponse = await appointmentService.getAll({
-      startDate: dayjs().startOf('year').format('YYYY-MM-DD'),
-      endDate: dayjs().endOf('year').format('YYYY-MM-DD'),
-      status: 'all',
-      limit: 100,
-      sort: 'date:desc',
-    });
-    const appointments = appointmentsResponse.data || [];
+    // Fetch patient data
+    const [health, appointments] = await Promise.all([
+      healthDataService.getLatestHealthData(),
+      appointmentService.getUpcomingAppointments()
+    ]);
+
+    healthData.value = health;
+    upcomingAppointment.value = appointments[0] || null;
+    
+    // Update stats
     stats.value = {
       totalAppointments: appointments.length,
-      completedConsultations: appointments.filter((a: any) => a.status === 'completed').length,
-      upcomingAppointments: appointments.filter((a: any) => a.status === 'scheduled').length,
-      lastCheckup: appointments.find((a: any) => a.status === 'completed')?.date || null,
+      completedConsultations: await appointmentService.getCompletedConsultationsCount(),
+      upcomingAppointments: appointments.filter(app => new Date(app.date) >= new Date()).length,
+      lastCheckup: await appointmentService.getLastCheckupDate()
     };
-
-    // Fetch latest health data readings
-    const patientId = authStore.user?.id || '';
-    const healthResponse = await healthDataService.getLatestReadings(patientId);
-    healthData.value = healthResponse.data;
-
-    // Fetch upcoming appointment (most immediate one)
-    if (stats.value.upcomingAppointments > 0) {
-      const today = dayjs().format('YYYY-MM-DD');
-      const nextMonth = dayjs().add(1, 'month').format('YYYY-MM-DD');
-
-      const upcomingResponse = await appointmentService.getAll({
-        startDate: today,
-        endDate: nextMonth,
-        status: 'scheduled',
-        limit: 1,
-        sort: 'date:asc',
-      });
-
-      if (upcomingResponse.data?.length > 0) {
-        upcomingAppointment.value = upcomingResponse.data[0];
-      }
-    }
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'Failed to load dashboard data. Please try again.',
-      life: 3000,
+      detail: 'Failed to load patient dashboard data',
+      life: 3000
     });
   } finally {
     loading.value = false;
   }
 };
 
-// Format date
 const formatDate = (dateString: string) => {
   return dayjs(dateString).format('MMMM D, YYYY');
 };
 
-// Format time
 const formatTime = (timeString: string) => {
   return dayjs(`2000-01-01T${timeString}`).format('h:mm A');
 };
 
-// Handle appointment selected
-const handleAppointmentSelected = (appointments: any[]) => {
-  console.log('Selected appointments:', appointments);
+const fetchDoctors = async () => {
+  try {
+    const response = await fetch('http://localhost:3000/doctors?page=1&limit=100');
+    const data = await response.json();
+    doctors.value = data.data.map(doctor => ({
+      id: doctor._id,
+      label: `${doctor.user.firstName} ${doctor.user.lastName} - ${doctor.specialization}`,
+      value: doctor._id,
+      doctor
+    }));
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to load doctors list',
+      life: 3000
+    });
+  }
 };
 
-// Book new appointment
-const bookNewAppointment = () => {
-  router.push('/patient/appointments');
+const fetchPatientId = async () => {
+  try {
+    const response = await apiClient.get('/patients/profile');
+    if (response.data && response.data._id) {
+      patientId.value = response.data._id;  
+      appointmentForm.value.patient = patientId.value;
+      console.log('Fetched patient ID:', patientId.value);
+    } else {
+      throw new Error('Invalid patient profile response');
+    }
+  } catch (error) {
+    console.error('Error fetching patient ID:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to fetch patient ID',
+      life: 3000
+    });
+  }
 };
 
-// Initial data load
-onMounted(() => {
-  fetchDashboardData();
+const submitAppointment = async () => {
+  try {
+    if (!patientId.value) {
+      throw new Error('Patient ID not found');
+    }
+
+    // Create appointment data using the patient ID from profile
+    const appointmentData = {
+      patient: patientId.value,  
+      doctor: selectedDoctor.value,
+      date: appointmentForm.value.date,
+      startTime: appointmentForm.value.startTime,
+      endTime: appointmentForm.value.endTime,
+      status: 'scheduled',
+      type: appointmentForm.value.type,
+      reasonForVisit: appointmentForm.value.reasonForVisit,
+      notes: appointmentForm.value.notes,
+      symptoms: appointmentForm.value.symptoms,
+      isPaid: appointmentForm.value.isPaid,
+      paymentAmount: appointmentForm.value.paymentAmount
+    };
+
+    console.log('Submitting appointment with patient ID:', patientId.value);
+    
+    const response = await apiClient.post('/appointments', appointmentData);
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Appointment booked successfully',
+      life: 3000
+    });
+    displayAppointmentModal.value = false;
+    await fetchDashboardData();
+  } catch (error) {
+    console.error('Error submitting appointment:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to book appointment',
+      life: 3000
+    });
+  }
+};
+
+const resetForm = () => {
+  appointmentForm.value = {
+    patient: patientId.value,
+    doctor: null,
+    date: '',
+    startTime: '',
+    endTime: '',
+    status: 'scheduled',
+    type: 'Video Consultation',
+    reasonForVisit: '',
+    notes: '',
+    symptoms: [],
+    isPaid: false,
+    paymentAmount: 150
+  };
+  selectedDoctor.value = null;
+};
+
+const clearDoctor = () => {
+  selectedDoctor.value = null;
+  appointmentForm.value.doctor = null;
+  appointmentForm.value.paymentAmount = 150; // Reset payment amount
+};
+
+onMounted(async () => {
+  await fetchDashboardData();
+  await fetchPatientId();
 });
 </script>
 
 <template>
   <div class="patient-dashboard">
-    <h1 class="dashboard-title">Patient Dashboard</h1>
-
-    <!-- Welcome message with upcoming appointment alert -->
-    <div class="welcome-banner">
-      <div class="welcome-content">
-        <h2>Welcome back, {{ authStore.user?.firstName || 'Patient' }}</h2>
-        <p>Here's a summary of your health data and upcoming appointments</p>
-      </div>
-
-      <div v-if="upcomingAppointment" class="appointment-alert">
-        <i class="pi pi-calendar"></i>
-        <div class="alert-content">
-          <p>Your next appointment with Dr. {{ upcomingAppointment.doctor.name }} is on</p>
-          <strong>{{ formatDate(upcomingAppointment.date) }} at {{ formatTime(upcomingAppointment.startTime) }}</strong>
-        </div>
+    <!-- Header with Title and Profile Icon -->
+    <div class="dashboard-header">
+      <h1 class="dashboard-title">Patient Dashboard</h1>
+      <div class="profile-icon-container">
         <Button
-          label="View Details"
-          icon="pi pi-arrow-right"
-          text
-          @click="$router.push(`/patient/appointments?id=${upcomingAppointment.id}`)"
-        />
-      </div>
-
-      <div v-else class="appointment-alert no-appointment">
-        <i class="pi pi-calendar-plus"></i>
-        <div class="alert-content">
-          <p>You don't have any upcoming appointments</p>
-          <strong>Schedule a check-up with your doctor</strong>
-        </div>
-        <Button
-          label="Book Now"
-          icon="pi pi-calendar-plus"
-          @click="bookNewAppointment"
+          icon="pi pi-user"
+          class="p-button-rounded p-button-text profile-icon"
+          @click="router.push('/patient/profile')"
+          aria-label="View Profile"
         />
       </div>
     </div>
 
-    <!-- Loading state -->
-    <div v-if="loading" class="loading-container">
-      <ProgressSpinner />
-      <p>Loading your health data...</p>
-    </div>
+    <!-- Dashboard Content -->
+    <div class="dashboard-content" v-if="!loading">
+      <!-- Welcome message with upcoming appointment alert -->
+      <div class="welcome-banner">
+        <div class="welcome-content">
+          <h2>Welcome back, {{ authStore.user?.firstName || 'Patient' }}</h2>
+          <p>Here's a summary of your health data and upcoming appointments</p>
+        </div>
 
-    <div v-else class="dashboard-content">
+        <div v-if="upcomingAppointment" class="appointment-alert">
+          <i class="pi pi-calendar"></i>
+          <div class="alert-content">
+            <p>Your next appointment with Dr. {{ upcomingAppointment.doctor.name }} is on</p>
+            <strong>{{ formatDate(upcomingAppointment.date) }} at {{ formatTime(upcomingAppointment.startTime) }}</strong>
+          </div>
+          <Button
+            label="View Details"
+            icon="pi pi-arrow-right"
+            text
+            @click="$router.push(`/patient/appointments?id=${upcomingAppointment.id}`)"
+          />
+        </div>
+
+        <div v-else class="appointment-alert no-appointment">
+          <i class="pi pi-calendar-plus"></i>
+          <div class="alert-content">
+            <p>You don't have any upcoming appointments</p>
+            <strong>Schedule a check-up with your doctor</strong>
+          </div>
+          <Button
+            label="Book Now"
+            icon="pi pi-calendar-plus"
+            @click="bookNewAppointment"
+          />
+        </div>
+      </div>
+
       <!-- Health statistics -->
       <div class="health-stats">
         <HealthDataCard
@@ -374,315 +492,569 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <div class="loading-container" v-else>
+      <ProgressSpinner />
+      <p>Loading your health data...</p>
+    </div>
+
+    <Dialog 
+      v-model:visible="displayAppointmentModal" 
+      header="Book Appointment" 
+      :modal="true" 
+      :style="{ width: '60vw' }"
+      :closable="true"
+    >
+      <form class="appointment-form">
+        <div class="form-header">
+          <h3>Appointment Details</h3>
+          <div v-if="selectedDoctorFee" class="consultation-fee">
+            <span class="fee-label">Consultation Fee:</span>
+            <span class="fee-amount">₹{{ selectedDoctorFee }}</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Doctor Selection -->
+          <div class="form-group">
+            <label for="doctor" class="form-label">Select Doctor</label>
+            <Dropdown
+              v-model="selectedDoctor"
+              :options="doctors"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select a doctor"
+              class="w-full"
+              @change="appointmentForm.paymentAmount = selectedDoctorFee"
+            />
+            
+            <!-- Doctor Info Display -->
+            <div v-if="selectedDoctor" class="doctor-info mt-2">
+              <div class="doctor-details">
+                <div class="doctor-name">{{ doctors.find(d => d.value === selectedDoctor)?.doctor.user.firstName }} {{ doctors.find(d => d.value === selectedDoctor)?.doctor.user.lastName }}</div>
+                <div class="doctor-specialty">{{ doctors.find(d => d.value === selectedDoctor)?.doctor.specialization }}</div>
+                <div class="doctor-fee">Fee: ₹{{ selectedDoctorFee }}</div>
+              </div>
+            </div>
+            <Button
+              v-if="selectedDoctor"
+              label="Clear Doctor"
+              icon="pi pi-times"
+              class="p-button-text p-button-danger mt-2"
+              @click="clearDoctor"
+            />
+          </div>
+
+          <!-- Date and Time -->
+          <div class="form-group">
+            <label for="date" class="form-label">Date</label>
+            <Calendar
+              v-model="appointmentForm.date"
+              dateFormat="dd/mm/yy"
+              :minDate="new Date()"
+              class="w-full"
+            />
+          </div>
+
+          <!-- Start Time Selection -->
+          <div class="form-group">
+            <label for="startTime" class="form-label">Start Time</label>
+            <InputText
+              v-model="appointmentForm.startTime"
+              type="time"
+              class="w-full"
+              placeholder="HH:MM"
+            />
+          </div>
+
+          <!-- End Time Selection -->
+          <div class="form-group">
+            <label for="endTime" class="form-label">End Time</label>
+            <InputText
+              v-model="appointmentForm.endTime"
+              type="time"
+              class="w-full"
+              placeholder="HH:MM"
+            />
+          </div>
+
+          <!-- Appointment Type -->
+          <div class="form-group">
+            <label for="type" class="form-label">Appointment Type</label>
+            <Dropdown
+              v-model="appointmentForm.type"
+              :options="['Video Consultation', 'In-Person']"
+              placeholder="Select appointment type"
+              class="w-full"
+            />
+          </div>
+
+          <!-- Reason for Visit -->
+          <div class="form-group">
+            <label for="reason" class="form-label">Reason for Visit</label>
+            <Textarea
+              v-model="appointmentForm.reasonForVisit"
+              :rows="3"
+              class="w-full"
+              placeholder="Briefly describe your reason for visit"
+            />
+          </div>
+
+          <!-- Additional Information -->
+          <div class="form-group">
+            <label for="notes" class="form-label">Additional Notes</label>
+            <Textarea
+              v-model="appointmentForm.notes"
+              :rows="3"
+              class="w-full"
+              placeholder="Any additional information for the doctor"
+            />
+          </div>
+
+          <!-- Symptoms -->
+          <div class="form-group">
+            <label class="form-label">Symptoms</label>
+            <MultiSelect
+              v-model="appointmentForm.symptoms"
+              :options="['Fever', 'Cough', 'Headache', 'Fatigue', 'Nausea', 'Other']"
+              placeholder="Select symptoms"
+              class="w-full"
+            />
+          </div>
+
+          <!-- Payment Section -->
+          <div class="form-group">
+            <div class="payment-section">
+              <div class="payment-checkbox">
+                <Checkbox v-model="appointmentForm.isPaid" :binary="true" />
+                <label class="ml-2">Pre-Payment</label>
+              </div>
+              <div class="payment-amount" v-if="appointmentForm.isPaid">
+                Amount: ₹{{ appointmentForm.paymentAmount }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <Button
+            label="Reset Form"
+            icon="pi pi-refresh"
+            class="p-button-text p-button-warning"
+            @click="resetForm"
+          />
+          <Button
+            label="Cancel"
+            icon="pi pi-times"
+            class="p-button-text"
+            @click="displayAppointmentModal = false"
+          />
+          <Button
+            label="Book Appointment"
+            icon="pi pi-check"
+            class="p-button-success"
+            @click="submitAppointment"
+          />
+        </div>
+      </form>
+    </Dialog>
   </div>
 </template>
 
-<style lang="scss" scoped>
+<style scoped>
 .patient-dashboard {
-  .dashboard-title {
-    font-size: var(--font-2xl);
-    margin-bottom: var(--space-3);
-    color: var(--neutral-800);
-  }
-
-  .welcome-banner {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-
-    .welcome-content {
-      background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-      padding: var(--space-4);
-      border-radius: var(--radius-lg);
-      color: white;
-
-      h2 {
-        font-size: var(--font-xl);
-        margin: 0 0 var(--space-1);
-      }
-
-      p {
-        margin: 0;
-        opacity: 0.9;
-      }
-    }
-
-    .appointment-alert {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      background-color: white;
-      padding: var(--space-3) var(--space-4);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-
-      i {
-        font-size: 24px;
-        color: var(--primary);
-        background-color: var(--primary-light);
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-      }
-
-      .alert-content {
-        flex: 1;
-
-        p {
-          margin: 0 0 var(--space-1);
-          color: var(--neutral-600);
-        }
-
-        strong {
-          font-size: var(--font-lg);
-          color: var(--neutral-800);
-        }
-      }
-
-      &.no-appointment {
-        i {
-          color: var(--secondary);
-          background-color: var(--secondary-light);
-        }
-      }
-    }
-  }
-
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-6);
-    gap: var(--space-3);
-
-    p {
-      color: var(--neutral-600);
-      font-size: var(--font-lg);
-    }
-  }
-
-  .dashboard-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-
-    .health-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: var(--space-3);
-    }
-
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 3fr 2fr;
-      gap: var(--space-3);
-
-      .dashboard-left {
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-3);
-
-        .health-chart-card,
-        .health-tips-card {
-          border-radius: var(--radius-lg);
-
-          :deep(.p-card-header) {
-            padding: var(--space-3);
-            padding-bottom: 0;
-          }
-
-          :deep(.p-card-content) {
-            padding: var(--space-3);
-          }
-
-          .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            h2 {
-              font-size: var(--font-lg);
-              margin: 0;
-              color: var(--neutral-800);
-            }
-          }
-
-          .chart-container {
-            height: 100%;
-          }
-
-          .tips-list {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-3);
-
-            .tip-item {
-              display: flex;
-              gap: var(--space-3);
-              padding: var(--space-2);
-              background-color: var(--neutral-100);
-              border-radius: var(--radius-md);
-
-              .tip-icon {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 40px;
-                height: 40px;
-                background-color: var(--primary-light);
-                border-radius: 50%;
-
-                i {
-                  font-size: 18px;
-                  color: var(--primary);
-                }
-              }
-
-              .tip-content {
-                h3 {
-                  font-size: var(--font-md);
-                  margin: 0 0 var(--space-1);
-                  color: var(--neutral-800);
-                }
-
-                p {
-                  font-size: var(--font-sm);
-                  margin: 0;
-                  color: var(--neutral-600);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      .dashboard-right {
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-3);
-
-        .calendar-card,
-        .activity-card {
-          border-radius: var(--radius-lg);
-
-          :deep(.p-card-header) {
-            padding: var(--space-3);
-            padding-bottom: 0;
-          }
-
-          :deep(.p-card-content) {
-            padding: var(--space-3);
-          }
-
-          .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            h2 {
-              font-size: var(--font-lg);
-              margin: 0;
-              color: var(--neutral-800);
-            }
-          }
-        }
-
-        .activity-timeline {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-3);
-
-          .timeline-item {
-            display: flex;
-            gap: var(--space-2);
-
-            .timeline-icon {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              width: 40px;
-              height: 40px;
-              background-color: var(--neutral-100);
-              border-radius: 50%;
-
-              i {
-                font-size: 16px;
-                color: var(--primary);
-              }
-            }
-
-            .timeline-content {
-              h3 {
-                font-size: var(--font-md);
-                margin: 0 0 var(--space-1);
-                color: var(--neutral-800);
-              }
-
-              p {
-                font-size: var(--font-sm);
-                margin: 0 0 var(--space-1);
-                color: var(--neutral-700);
-              }
-
-              .timeline-date {
-                font-size: var(--font-xs);
-                color: var(--neutral-500);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  .no-data {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-4);
-    gap: var(--space-2);
-    color: var(--neutral-500);
-
-    i {
-      font-size: 32px;
-      margin-bottom: var(--space-1);
-    }
-
-    p {
-      margin: 0 0 var(--space-2);
-      text-align: center;
-    }
-  }
+  padding: 2rem;
+  background: var(--surface-ground);
 }
 
-// Responsive styles
-@media (max-width: 1200px) {
-  .patient-dashboard {
-    .welcome-banner {
-      grid-template-columns: 1fr;
-    }
+/* Modal Styling */
+.appointment-modal {
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  background: var(--surface-ground);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
 
-    .health-stats {
-      grid-template-columns: repeat(2, 1fr);
-    }
+:deep(.p-dialog-header) {
+  background: var(--surface-ground);
+  border-bottom: 1px solid var(--surface-border);
+  padding: 2rem !important;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 
-    .dashboard-grid {
-      grid-template-columns: 1fr;
-    }
-  }
+:deep(.p-dialog-content) {
+  padding: 2.5rem !important;
+  background: var(--surface-ground);
+  border-radius: 0 0 16px 16px;
+}
+
+:deep(.p-dialog-header .p-dialog-header-close) {
+  color: var(--text-color-secondary);
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+:deep(.p-dialog-header .p-dialog-header-close:hover) {
+  color: var(--primary-color);
+  background: rgba(155, 135, 245, 0.1);
+}
+
+/* Form Styling */
+.appointment-form {
+  padding: 1.5rem;
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.consultation-fee {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.doctor-info {
+  background: var(--surface-card);
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid var(--surface-border);
+}
+
+.doctor-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.doctor-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.doctor-specialty {
+  color: var(--text-color-secondary);
+}
+
+.doctor-fee {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.payment-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.payment-amount {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.p-button-text {
+  flex: 1;
+  min-width: 120px;
+}
+
+.p-button-warning {
+  background: var(--warning-color);
+  color: white;
+}
+
+.p-button-warning:hover {
+  background: var(--warning-color-dark);
+}
+
+.p-button-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.p-button-danger:hover {
+  background: var(--danger-color-dark);
 }
 
 @media (max-width: 768px) {
-  .patient-dashboard {
-    .health-stats {
-      grid-template-columns: 1fr;
-    }
+  .form-grid {
+    grid-template-columns: 1fr;
   }
+}
+
+/* Existing Dashboard Styles (Unchanged) */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.dashboard-title {
+  font-size: 2rem;
+  color: var(--text-color);
+  margin: 0;
+}
+
+.profile-icon-container {
+  display: flex;
+  align-items: center;
+}
+
+.profile-icon {
+  color: var(--primary-color);
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.profile-icon:hover {
+  background: rgba(155, 135, 245, 0.1);
+  transform: scale(1.1);
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+.welcome-banner {
+  background: var(--surface-ground);
+  padding: 2rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+}
+
+.welcome-content {
+  margin-bottom: 1.5rem;
+}
+
+.appointment-alert {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--surface-card);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.appointment-alert i {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.no-appointment {
+  background: var(--surface-card);
+  color: var(--text-color-secondary);
+}
+
+.no-appointment i {
+  color: var(--text-color-secondary);
+}
+
+.health-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-left,
+.dashboard-right {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.health-chart-card,
+.health-tips-card,
+.calendar-card,
+.activity-card {
+  height: 100%;
+}
+
+.chart-container {
+  height: 300px;
+}
+
+.no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: var(--text-color-secondary);
+}
+
+.no-data i {
+  font-size: 3rem;
+}
+
+.tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tip-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--surface-card);
+}
+
+.tip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: white;
+}
+
+.tip-content h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.activity-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--surface-card);
+}
+
+.timeline-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: white;
+}
+
+.timeline-content h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.timeline-date {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 1rem;
+}
+
+:deep(.p-button) {
+  background: var(--primary-color);
+  color: white;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+:deep(.p-button:hover) {
+  background: var(--primary-color-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(155, 135, 245, 0.2);
+}
+
+:deep(.p-button.p-button-text) {
+  color: var(--primary-color);
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+}
+
+:deep(.p-button.p-button-text:hover) {
+  background: rgba(155, 135, 245, 0.1);
 }
 </style>

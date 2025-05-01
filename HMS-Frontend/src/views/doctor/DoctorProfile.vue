@@ -24,6 +24,7 @@ interface DoctorProfile {
     emailVerified: boolean;
     createdAt: string;
     updatedAt: string;
+    profilePicture?: string;
   };
   specialization?: string;
   qualifications?: string[];
@@ -113,6 +114,7 @@ onMounted(async () => {
 
 <template>
   <div class="doctor-profile">
+    <!-- Profile Header -->
     <div class="profile-header">
       <h1 class="profile-title">Doctor Profile</h1>
       <Button
@@ -153,296 +155,234 @@ onMounted(async () => {
         </template>
       </Card>
 
-      <div class="profile-details">
-        <Fieldset legend="Professional Details">
-          <div class="detail-row">
-            <span class="label">License Number:</span>
-            <span>{{ profile.licenseNumber || 'Not specified' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Qualifications:</span>
-            <span>{{ profile.qualifications?.join(', ') || 'Not specified' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Experience:</span>
-            <span>{{ profile.experience ? `${profile.experience} years` : 'Not specified' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Consultation Fee:</span>
-            <span>{{ profile.consultationFee ? `$${profile.consultationFee}` : 'Not specified' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Availability:</span>
-            <span>{{ profile.isAvailableForAppointments ? 'Available' : 'Not available' }}</span>
-          </div>
-        </Fieldset>
-
-        <Fieldset legend="Contact Information">
-          <div class="detail-row">
-            <span class="label">Office Address:</span>
-            <span>{{ profile.officeAddress || 'Not specified' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Office Phone:</span>
-            <span>{{ profile.officePhone || 'Not specified' }}</span>
+      <!-- Professional Details -->
+      <div class="profile-section">
+        <Fieldset legend="Professional Details" class="profile-fieldset">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">License Number:</span>
+              <span class="value">{{ profile.licenseNumber || 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Qualifications:</span>
+              <span class="value">{{ profile.qualifications?.join(', ') || 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Experience:</span>
+              <span class="value">{{ profile.experience ? `${profile.experience} years` : 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Consultation Fee:</span>
+              <span class="value">{{ profile.consultationFee ? `$${profile.consultationFee}` : 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Availability:</span>
+              <span class="value">{{ profile.isAvailableForAppointments ? 'Available' : 'Not available' }}</span>
+            </div>
           </div>
         </Fieldset>
+      </div>
 
-        <Fieldset legend="About">
-          <p>{{ profile.bio || 'No bio provided' }}</p>
-        </Fieldset>
-
-        <Fieldset legend="Ratings">
-          <div class="detail-row">
-            <span class="label">Average Rating:</span>
-            <span>{{ profile.averageRating.toFixed(1) }} / 5 ({{ profile.totalRatings }} reviews)</span>
+      <!-- Contact Information -->
+      <div class="profile-section">
+        <Fieldset legend="Contact Information" class="profile-fieldset">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Office Address:</span>
+              <span class="value">{{ profile.officeAddress || 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Office Phone:</span>
+              <span class="value">{{ profile.officePhone || 'Not specified' }}</span>
+            </div>
           </div>
         </Fieldset>
+      </div>
 
-        <Fieldset legend="Account Information">
-          <div class="detail-row">
-            <span class="label">Email Verified:</span>
-            <span>{{ profile.user.emailVerified ? 'Yes' : 'No' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Created At:</span>
-            <span>{{ formatDate(profile.user.createdAt) }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Last Updated:</span>
-            <span>{{ formatDate(profile.user.updatedAt) }}</span>
+      <!-- About -->
+      <div class="profile-section">
+        <Fieldset legend="About" class="profile-fieldset">
+          <p class="bio-text">{{ profile.bio || 'No bio provided' }}</p>
+        </Fieldset>
+      </div>
+
+      <!-- Ratings -->
+      <div class="profile-section">
+        <Fieldset legend="Ratings" class="profile-fieldset">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Average Rating:</span>
+              <span class="value">{{ profile.averageRating.toFixed(1) }} / 5 ({{ profile.totalRatings }} reviews)</span>
+            </div>
           </div>
         </Fieldset>
       </div>
     </div>
 
     <!-- Error state -->
-    <div v-else class="no-data">
-      <i class="pi pi-exclamation-triangle"></i>
-      <p>Unable to load profile data</p>
+    <div v-else class="error-container">
+      <p>Error loading profile</p>
     </div>
   </div>
 </template>
 
-<style lang="scss" scoped>
-$primary: #9b87f5;
-$primary-light: rgba(155, 135, 245, 0.1);
-$primary-dark: #7e69ab;
-$neutral-100: #f7fafc;
-$neutral-500: #a0aec0;
-$neutral-600: #718096;
-$neutral-800: #2d3748;
-$radius-md: 8px;
-$radius-lg: 12px;
-$space-1: 0.25rem;
-$space-2: 0.5rem;
-$space-3: 1rem;
-$space-4: 1.5rem;
-$space-6: 3rem;
-$shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-$transition-fast: 0.2s ease;
-$transition-normal: 0.3s ease;
-$font-sm: 0.875rem;
-$font-md: 1rem;
-$font-lg: 1.125rem;
-$font-2xl: 1.5rem;
-
+<style scoped>
 .doctor-profile {
-  padding: $space-4;
-  background-color: $neutral-100;
-
-  .profile-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: $space-4;
-
-    .profile-title {
-      font-size: $font-2xl;
-      margin: 0;
-      color: $neutral-800;
-      font-weight: 600;
-    }
-
-    .edit-button {
-      background-color: $primary;
-      border-color: $primary;
-      color: white;
-      border-radius: $radius-md;
-      padding: $space-2 $space-3;
-      font-size: $font-md;
-      transition: background-color $transition-fast;
-
-      &:hover {
-        background-color: $primary-dark;
-      }
-    }
-  }
-
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: $space-6;
-    gap: $space-3;
-
-    p {
-      color: $neutral-600;
-      font-size: $font-lg;
-    }
-  }
-
-  .profile-content {
-    display: flex;
-    flex-direction: column;
-    gap: $space-3;
-
-    .profile-card {
-      border-radius: $radius-lg;
-
-      :deep(.p-card-content) {
-        padding: $space-3;
-      }
-
-      .profile-overview {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-
-        .profile-avatar {
-          width: 100px;
-          height: 100px;
-        }
-
-        .profile-info {
-          h2 {
-            font-size: $font-2xl;
-            margin: 0 0 $space-1;
-            color: $neutral-800;
-          }
-
-          .specialization {
-            font-size: $font-md;
-            color: $primary;
-            margin: 0 0 $space-1;
-          }
-
-          .email {
-            font-size: $font-sm;
-            color: $neutral-600;
-            margin: 0 0 $space-1;
-          }
-
-          .status {
-            font-size: $font-sm;
-            padding: $space-1 $space-2;
-            border-radius: $radius-md;
-            display: inline-block;
-
-            &.active {
-              background-color: $primary-light;
-              color: $primary;
-            }
-          }
-        }
-      }
-    }
-
-    .profile-details {
-      display: flex;
-      flex-direction: column;
-      gap: $space-3;
-
-      :deep(.p-fieldset) {
-        border-radius: $radius-lg;
-        padding: $space-3;
-
-        .p-fieldset-legend {
-          font-size: $font-lg;
-          color: $neutral-800;
-          padding: $space-2 $space-3;
-          background-color: $neutral-100;
-          border-radius: $radius-md;
-        }
-
-        .p-fieldset-content {
-          padding: $space-2 0;
-        }
-      }
-
-      .detail-row {
-        display: flex;
-        gap: $space-2;
-        margin-bottom: $space-2;
-
-        .label {
-          font-weight: 600;
-          color: $neutral-800;
-          width: 150px;
-        }
-
-        span {
-          color: $neutral-600;
-        }
-      }
-    }
-  }
-
-  .no-data {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: $space-6;
-    color: $neutral-500;
-
-    i {
-      font-size: 32px;
-      margin-bottom: $space-2;
-    }
-
-    p {
-      font-size: $font-lg;
-      margin: 0;
-    }
-  }
+  padding: 2rem;
+  background: var(--surface-ground);
 }
 
-@media (max-width: 768px) {
-  .doctor-profile {
-    padding: $space-3;
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
 
-    .profile-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: $space-2;
+.profile-title {
+  font-size: 2rem;
+  color: var(--text-color);
+  margin: 0;
+}
 
-      .edit-button {
-        width: 100%;
-        justify-content: center;
-      }
-    }
+.edit-button {
+  background: var(--primary-color);
+  color: white;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
 
-    .profile-content {
-      .profile-card {
-        .profile-overview {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-      }
+.edit-button:hover {
+  background: var(--primary-color-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(155, 135, 245, 0.2);
+}
 
-      .profile-details {
-        .detail-row {
-          flex-direction: column;
-          gap: $space-1;
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 1rem;
+}
 
-          .label {
-            width: auto;
-          }
-        }
-      }
-    }
-  }
+.profile-content {
+  display: grid;
+  gap: 2rem;
+}
+
+.profile-card {
+  background: var(--surface-card);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.profile-overview {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.1);
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-info h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-color);
+  font-weight: 700;
+}
+
+.specialization {
+  font-size: 1.1rem;
+  color: var(--primary-color);
+  font-weight: 500;
+  margin: 0.5rem 0;
+}
+
+.email {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+  margin: 0.5rem 0;
+}
+
+.status {
+  font-size: 0.9rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 0;
+}
+
+.status.active {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.status:not(.active) {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.profile-section {
+  margin-bottom: 2rem;
+}
+
+.profile-fieldset {
+  background: var(--surface-card);
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  padding: 1.5rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+  font-weight: 500;
+}
+
+.value {
+  font-size: 1rem;
+  color: var(--text-color);
+}
+
+.bio-text {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+.error-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-color-secondary);
 }
 </style>

@@ -28,12 +28,26 @@ let AppointmentsService = class AppointmentsService {
     async create(createAppointmentDto) {
         try {
             await this.doctorsService.findOne(createAppointmentDto.doctor);
-            await this.patientsService.findOne(createAppointmentDto.patient);
+            console.log('Received patient ID:', createAppointmentDto.patient);
+            if (!createAppointmentDto.patient.match(/^[0-9a-fA-F]{24}$/)) {
+                throw new common_1.BadRequestException(`Invalid patient ID format: ${createAppointmentDto.patient}`);
+            }
+            const patient = await this.patientsService.findOne(createAppointmentDto.patient);
+            if (!patient) {
+                const patientByUserId = await this.patientsService.findByUserId(createAppointmentDto.patient);
+                if (patientByUserId) {
+                    const patientDoc = patientByUserId;
+                    const patientId = patientDoc.id;
+                    throw new common_1.BadRequestException(`Found patient by user ID but not by patient ID. Please use patient ID: ${patientId}`);
+                }
+                throw new common_1.NotFoundException(`Patient with ID ${createAppointmentDto.patient} not found in database`);
+            }
             await this.checkDoctorAvailability(createAppointmentDto.doctor, createAppointmentDto.date, createAppointmentDto.startTime, createAppointmentDto.endTime);
             const newAppointment = new this.appointmentModel(createAppointmentDto);
             return newAppointment.save();
         }
         catch (error) {
+            console.error('Error creating appointment:', error);
             if (error instanceof common_1.NotFoundException || error instanceof common_1.BadRequestException) {
                 throw error;
             }

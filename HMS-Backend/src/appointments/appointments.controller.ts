@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { 
   Controller, 
   Get, 
@@ -57,6 +58,7 @@ export class AppointmentsController {
   @ApiResponse({ status: 200, description: 'Return patient appointments' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   findByPatient(@Param('id') id: string, @Query() paginationDto: PaginationDto, @Request() req) {
     // You may want to add additional checks to ensure patients can only view their own appointments
     return this.appointmentsService.findByPatient(id, paginationDto);
@@ -70,6 +72,7 @@ export class AppointmentsController {
   @ApiResponse({ status: 200, description: 'Return doctor appointments' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   findByDoctor(@Param('id') id: string, @Query() paginationDto: PaginationDto, @Request() req) {
     // You may want to add additional checks to ensure doctors can only view their own appointments
     return this.appointmentsService.findByDoctor(id, paginationDto);

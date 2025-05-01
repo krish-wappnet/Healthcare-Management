@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Document } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
@@ -8,6 +8,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { DoctorsService } from '../doctors/doctors.service';
 import { PatientsService } from '../patients/patients.service';
 import { AppointmentStatus } from '../common/enums/appointment-status.enum';
+import { PatientDocument } from '../patients/schemas/patient.schema';
 
 @Injectable()
 export class AppointmentsService {
@@ -21,7 +22,29 @@ export class AppointmentsService {
     try {
       // Verify doctor and patient exist
       await this.doctorsService.findOne(createAppointmentDto.doctor);
-      await this.patientsService.findOne(createAppointmentDto.patient);
+      
+      // Log the incoming patient ID for debugging
+      console.log('Received patient ID:', createAppointmentDto.patient);
+      
+      // Validate patient ID format
+      if (!createAppointmentDto.patient.match(/^[0-9a-fA-F]{24}$/)) {
+        throw new BadRequestException(`Invalid patient ID format: ${createAppointmentDto.patient}`);
+      }
+      
+      // First try to find by patient ID
+      const patient = await this.patientsService.findOne(createAppointmentDto.patient);
+      
+      if (!patient) {
+        // If not found, try to find by user ID
+        const patientByUserId = await this.patientsService.findByUserId(createAppointmentDto.patient);
+        if (patientByUserId) {
+          // Use the proper PatientDocument type
+          const patientDoc = patientByUserId as PatientDocument;
+          const patientId = patientDoc.id;
+          throw new BadRequestException(`Found patient by user ID but not by patient ID. Please use patient ID: ${patientId}`);
+        }
+        throw new NotFoundException(`Patient with ID ${createAppointmentDto.patient} not found in database`);
+      }
       
       // Check doctor availability for the requested time slot
       await this.checkDoctorAvailability(
@@ -35,6 +58,7 @@ export class AppointmentsService {
       const newAppointment = new this.appointmentModel(createAppointmentDto);
       return newAppointment.save();
     } catch (error) {
+      console.error('Error creating appointment:', error);
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
