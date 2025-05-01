@@ -50,6 +50,9 @@ const toast = useToast();
 const router = useRouter();
 const authStore = useAuthStore();
 const loading = ref(true);
+const error = ref<string | null>(null);
+const patientId = ref<string | null>(null);
+const appointments = ref<Appointment[]>([]);
 const healthData = ref<HealthData | null>(null);
 const upcomingAppointment = ref<Appointment | null>(null);
 const stats = ref<PatientStats>({
@@ -61,7 +64,6 @@ const stats = ref<PatientStats>({
 const displayAppointmentModal = ref(false);
 const selectedDoctor = ref(null);
 const doctors = ref([]);
-const patientId = ref<string | null>(null);
 const appointmentForm = ref({
   patient: patientId.value,
   doctor: null,
@@ -96,19 +98,19 @@ const handleAppointmentSelected = (appointment: Appointment) => {
 const fetchDashboardData = async () => {
   try {
     // Fetch patient data
-    const [health, appointments] = await Promise.all([
+    const [health, appointmentsData] = await Promise.all([
       healthDataService.getLatestHealthData(),
       appointmentService.getUpcomingAppointments()
     ]);
 
     healthData.value = health;
-    upcomingAppointment.value = appointments[0] || null;
+    upcomingAppointment.value = appointmentsData[0] || null;
     
     // Update stats
     stats.value = {
-      totalAppointments: appointments.length,
+      totalAppointments: appointmentsData.length,
       completedConsultations: await appointmentService.getCompletedConsultationsCount(),
-      upcomingAppointments: appointments.filter(app => new Date(app.date) >= new Date()).length,
+      upcomingAppointments: appointmentsData.filter(app => new Date(app.date) >= new Date()).length,
       lastCheckup: await appointmentService.getLastCheckupDate()
     };
   } catch (error) {
@@ -439,7 +441,8 @@ onMounted(async () => {
 
             <template #content>
               <AppointmentCalendar
-                readOnly
+                :patient-id="patientId"
+                :appointments="appointments"
                 @appointment-selected="handleAppointmentSelected"
               />
             </template>

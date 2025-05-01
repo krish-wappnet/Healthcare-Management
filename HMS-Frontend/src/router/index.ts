@@ -24,9 +24,9 @@ const DoctorRegistration = () => import('../views/auth/DoctorRegistration.vue')
 // Patient routes
 const PatientDashboard = () => import('../views/patient/DashboardView.vue')
 const PatientProfile = () => import('../views/patient/PatientProfile.vue')
+const PatientAppointments = () => import('../views/patient/PatientAppointments.vue')
 const PatientRegistration = () => import('../views/auth/PatientRegistration.vue')
 // Uncomment and use when views are available
-// const PatientAppointments = () => import('../views/patient/AppointmentsView.vue')
 // const PatientConsultations = () => import('../views/patient/ConsultationsView.vue')
 // const PatientHealth = () => import('../views/patient/HealthView.vue')
 // const PatientChatbot = () => import('../views/patient/ChatbotView.vue')
@@ -177,6 +177,13 @@ const router = createRouter({
       path: '/patient/profile',
       name: 'patient-profile',
       component: PatientProfile,
+      meta: { role: 'patient' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/patient/appointments',
+      name: 'patient-appointments',
+      component: PatientAppointments,
       meta: { role: 'patient' },
       beforeEnter: authGuard
     }
