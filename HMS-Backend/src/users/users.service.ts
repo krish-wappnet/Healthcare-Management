@@ -15,24 +15,26 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const { email, password } = createUserDto;
+    const { email } = createUserDto;
     
-    // Check if user already exists
+    console.log('Creating user with payload:', createUserDto); // Log payload
+  
     const existingUser = await this.userModel.findOne({ email }).exec();
     if (existingUser) {
+      console.log(`User with email ${email} already exists`); // Log conflict
       throw new ConflictException('Email already in use');
     }
-    
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // Create the user
-    const newUser = new this.userModel({
-      ...createUserDto,
-      password: hashedPassword,
-    });
-    
-    return newUser.save();
+  
+    const newUser = new this.userModel(createUserDto);
+  
+    try {
+      const savedUser = await newUser.save();
+      console.log('Saved user:', savedUser); // Log saved user
+      return savedUser;
+    } catch (error) {
+      console.error('Error saving user:', error.message); // Log save error
+      throw error;
+    }
   }
 
   async findAll(paginationDto: PaginationDto): Promise<{ data: User[]; total: number; page: number; limit: number }> {
@@ -57,18 +59,51 @@ export class UsersService {
 
   async findOne(id: string): Promise<User> {
     const user = await this.userModel.findById(id).exec();
+    console.log('findByEmail - Found user:', user); // 
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
     return user;
   }
 
-  async findByEmail(email: string): Promise<User> {
-    const user = await this.userModel.findOne({ email }).exec();
-    if (!user) {
-      throw new NotFoundException(`User with email ${email} not found`);
+  async findByEmail(email: string): Promise<any> {
+    try {
+      console.log('Searching for user with email:', email);
+      const user = await this.userModel.findOne({ email }).exec();
+      
+      if (!user) {
+        console.error('User not found for email:', email);
+        throw new NotFoundException(`User with email ${email} not found`);
+      }
+
+      console.log('Found user in database:', {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        password: user.password // Include password for authentication
+      });
+
+      // Format user object for authentication - include password
+      const formattedUser = {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: user.profilePicture,
+        isActive: user.isActive,
+        emailVerified: user.emailVerified,
+        password: user.password // Include password for authentication
+      };
+
+      console.log('Returning formatted user:', formattedUser);
+      return formattedUser;
+    } catch (error) {
+      console.error('Error in findByEmail:', error);
+      throw error;
     }
-    return user;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {

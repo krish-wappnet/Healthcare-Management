@@ -171,6 +171,42 @@
                 {{ errors.password }}
               </p>
             </div>
+
+            <div class="form-group">
+              <label for="role" class="form-label">Role</label>
+              <div class="input-container">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="input-icon"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <select
+                  id="role"
+                  v-model="form.role"
+                  class="form-input"
+                  :class="{ 'input-error': errors.role }"
+                  @focus="clearError('role')"
+                  required
+                >
+                  <option value="" disabled>Select your role</option>
+                  <option value="patient">Patient</option>
+                  <option value="doctor">Doctor</option>
+                </select>
+              </div>
+              <p v-if="errors.role" class="error-message">
+                {{ errors.role }}
+              </p>
+            </div>
           </div>
 
           <div class="form-actions">
@@ -205,6 +241,7 @@ const form = reactive({
   email: '',
   password: '',
   profilePicture: '',
+  role: '' as 'patient' | 'doctor' | '',
 });
 
 const errors = reactive({
@@ -212,6 +249,7 @@ const errors = reactive({
   lastName: '',
   email: '',
   password: '',
+  role: '',
 });
 
 const showPassword = ref(false);
@@ -245,8 +283,13 @@ const validateForm = () => {
   if (!form.password) {
     errors.password = 'Password is required';
     isValid = false;
-  } else if (form.password.length < 6) {
-    errors.password = 'Password must be at least 6 characters';
+  } else if (form.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters';
+    isValid = false;
+  }
+
+  if (!form.role) {
+    errors.role = 'Role is required';
     isValid = false;
   }
 
@@ -265,6 +308,7 @@ const handleRegister = async () => {
       email: form.email,
       password: form.password,
       profilePicture: form.profilePicture || undefined,
+      role: form.role,
     });
 
     toast.add({
@@ -274,7 +318,7 @@ const handleRegister = async () => {
       life: 5000,
     });
 
-    router.push('/role-selection');
+    router.push('/dashboard'); // Redirect to dashboard or another page
   } catch (error: any) {
     toast.add({
       severity: 'error',

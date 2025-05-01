@@ -24,8 +24,17 @@ let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
-    login(loginDto) {
-        return this.authService.login(loginDto);
+    async login(loginDto) {
+        try {
+            console.log('Login request received:', loginDto);
+            const validatedUser = await this.authService.validateUser(loginDto.email, loginDto.password);
+            console.log('Credentials validated, user:', validatedUser);
+            return this.authService.login(validatedUser);
+        }
+        catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
     }
     register(registerDto) {
         return this.authService.register(registerDto);
@@ -52,7 +61,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [login_dto_1.LoginDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
     (0, common_1.Post)('register'),

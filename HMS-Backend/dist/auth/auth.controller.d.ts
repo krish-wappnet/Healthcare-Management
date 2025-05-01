@@ -10,17 +10,13 @@ export declare class AuthController {
         user: {
             id: any;
             email: any;
+            role: any;
             firstName: any;
             lastName: any;
-            role: any;
             profilePicture: any;
         };
     }>;
-    register(registerDto: RegisterDto): Promise<{
-        accessToken: string;
-        refreshToken: string;
-        user: any;
-    }>;
+    register(registerDto: RegisterDto): Promise<any>;
     refreshTokens(req: any): Promise<{
         accessToken: string;
         refreshToken: string;

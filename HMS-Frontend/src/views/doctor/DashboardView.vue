@@ -1,114 +1,295 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { dashboardService, appointmentService, patientService } from '../../services/api'
-import { useToast } from 'primevue/usetoast'
-import Card from 'primevue/card'
-import Button from 'primevue/button'
-import ProgressSpinner from 'primevue/progressspinner'
-import VitalSignsChart from '../../components/charts/VitalSignsChart.vue'
-import dayjs from 'dayjs'
+import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
+import Card from 'primevue/card';
+import Button from 'primevue/button';
+import ProgressSpinner from 'primevue/progressspinner';
+import VitalSignsChart from '../../components/charts/VitalSignsChart.vue';
+import { dashboardService, appointmentService, patientService, apiClient } from '../../services/api';
+import { useAuthStore } from '../../stores/auth';
+import dayjs from 'dayjs';
+
+// Interfaces for type safety
+interface DashboardStats {
+  totalPatients: number;
+  todayAppointments: number;
+  pendingConsultations: number;
+  completedAppointmentsThisWeek: number;
+}
+
+interface Patient {
+  id: string;
+  name: string;
+  age: number;
+  gender: string;
+  avatar?: string;
+  lastVisit?: string;
+}
+
+interface Appointment {
+  id: string;
+  date: string;
+  startTime: string;
+  patient: {
+    name: string;
+    avatar?: string;
+  };
+}
+
+interface HealthData {
+  heartRate: { timestamp: string; value: number }[];
+  bloodPressure: { timestamp: string; systolic: number; diastolic: number }[];
+}
+
+interface DoctorProfile {
+  _id: string;
+  user: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: 'doctor';
+    isActive: boolean;
+    emailVerified: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  specialization?: string;
+  qualifications?: string[];
+  licenseNumber?: string;
+  experience?: number;
+  bio?: string;
+  officeAddress?: string;
+  officePhone?: string;
+  consultationFee?: number;
+  isAvailableForAppointments?: boolean;
+  workingHours?: { _id: string };
+  averageRating: number;
+  totalRatings: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // State
-const toast = useToast()
-const loading = ref(true)
-const stats = ref({
+const toast = useToast();
+const router = useRouter();
+const authStore = useAuthStore();
+const loading = ref(true);
+const stats = ref<DashboardStats>({
   totalPatients: 0,
   todayAppointments: 0,
   pendingConsultations: 0,
-  completedAppointmentsThisWeek: 0
-})
-const recentPatients = ref<any[]>([])
-const upcomingAppointments = ref<any[]>([])
-const selectedPatient = ref<any>(null)
-const selectedPatientData = ref<any>(null)
-const loadingPatientData = ref(false)
+  completedAppointmentsThisWeek: 0,
+});
+const recentPatients = ref<Patient[]>([]);
+const upcomingAppointments = ref<Appointment[]>([]);
+const selectedPatient = ref<Patient | null>(null);
+const selectedPatientData = ref<HealthData | null>(null);
+const loadingPatientData = ref(false);
+const doctorProfile = ref<DoctorProfile | null>(null);
+const loadingProfile = ref(false);
+
+// Computed properties
+const isAuthorized = computed(() => {
+  return authStore.isAuthenticated && authStore.userRole === 'doctor';
+});
+
+const isProfileIncomplete = computed(() => {
+  return authStore.userRole === 'doctor' && (!doctorProfile.value || !doctorProfile.value.specialization);
+});
+
+// Fetch doctor profile
+const fetchDoctorProfile = async () => {
+  if (!isAuthorized.value) return;
+
+  loadingProfile.value = true;
+
+  try {
+    const response = await apiClient.get('/doctors/profile', {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    });
+    doctorProfile.value = response.data;
+  } catch (error: any) {
+    console.error('Error fetching doctor profile:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to load doctor profile',
+      life: 3000,
+    });
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      await authStore.logout();
+      router.push('/login');
+    }
+  } finally {
+    loadingProfile.value = false;
+  }
+};
 
 // Fetch dashboard data
 const fetchDashboardData = async () => {
+  if (!isAuthorized.value) {
+    toast.add({
+      severity: 'error',
+      summary: 'Unauthorized',
+      detail: 'You must be logged in as a doctor to view this dashboard.',
+      life: 3000,
+    });
+    router.push('/login');
+    return;
+  }
+
+  loading.value = true;
+
   try {
-    // Fetch dashboard stats
-    const statsResponse = await dashboardService.getDoctorStats()
-    stats.value = statsResponse.data
-    
-    // Fetch recent patients
-    const patientsResponse = await patientService.getAll({ limit: 5, sort: 'lastVisit:desc' })
-    recentPatients.value = patientsResponse.data
-    
-    // Fetch upcoming appointments
-    const today = dayjs().format('YYYY-MM-DD')
-    const nextWeek = dayjs().add(7, 'day').format('YYYY-MM-DD')
-    
+    const statsResponse = await dashboardService.getDoctorStats();
+    stats.value = statsResponse.data;
+
+    const patientsResponse = await patientService.getAll({
+      limit: 5,
+      sort: 'lastVisit:desc',
+    });
+    recentPatients.value = patientsResponse.data;
+
+    const today = dayjs().format('YYYY-MM-DD');
+    const nextWeek = dayjs().add(7, 'day').format('YYYY-MM-DD');
     const appointmentsResponse = await appointmentService.getAll({
       startDate: today,
       endDate: nextWeek,
       status: 'scheduled',
       limit: 5,
-      sort: 'date:asc'
-    })
-    
-    upcomingAppointments.value = appointmentsResponse.data
-    
-    // If there are patients, select the first one by default
-    if (recentPatients.value.length > 0) {
-      selectPatient(recentPatients.value[0])
-    }
-  } catch (error) {
-    console.error('Error fetching dashboard data:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load dashboard data. Please try again.',
-      life: 3000
-    })
-  } finally {
-    loading.value = false
-  }
-}
+      sort: 'date:asc',
+    });
+    upcomingAppointments.value = appointmentsResponse.data;
 
-// Select a patient to view their data
-const selectPatient = async (patient: any) => {
-  selectedPatient.value = patient
-  loadingPatientData.value = true
-  
-  try {
-    // Fetch patient health data
-    const response = await patientService.getHealth(patient.id)
-    selectedPatientData.value = response.data
-  } catch (error) {
-    console.error('Error fetching patient health data:', error)
+    if (recentPatients.value.length > 0) {
+      await selectPatient(recentPatients.value[0]);
+    }
+  } catch (error: any) {
+    console.error('Error fetching dashboard data:', error);
+    const message =
+      error.response?.data?.message || 'Failed to load dashboard data. Please try again.';
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'Failed to load patient health data',
-      life: 3000
-    })
-    selectedPatientData.value = null
+      detail: message,
+      life: 3000,
+    });
+
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      await authStore.logout();
+      router.push('/login');
+    }
   } finally {
-    loadingPatientData.value = false
+    loading.value = false;
   }
-}
+};
+
+// Select a patient
+const selectPatient = async (patient: Patient) => {
+  if (!patient?.id) return;
+
+  selectedPatient.value = patient;
+  loadingPatientData.value = true;
+
+  try {
+    const response = await patientService.getHealth(patient.id);
+    selectedPatientData.value = response.data;
+  } catch (error: any) {
+    console.error('Error fetching patient health data:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to load patient health data',
+      life: 3000,
+    });
+    selectedPatientData.value = null;
+  } finally {
+    loadingPatientData.value = false;
+  }
+};
 
 // Format appointment date
 const formatAppointmentDate = (date: string, time: string) => {
-  return dayjs(`${date}T${time}`).format('MMM D, YYYY - h:mm A')
-}
+  return dayjs(`${date}T${time}`).format('MMM D, YYYY - h:mm A');
+};
+
+// Navigate to doctor registration
+const goToDoctorRegistration = () => {
+  if (!isAuthorized.value) {
+    toast.add({
+      severity: 'error',
+      summary: 'Unauthorized',
+      detail: 'Only doctors can complete their profile.',
+      life: 3000,
+    });
+    return;
+  }
+  router.push('/doctor-registration');
+};
+
+// Navigate to doctor profile
+const goToDoctorProfile = () => {
+  if (!isAuthorized.value) {
+    toast.add({
+      severity: 'error',
+      summary: 'Unauthorized',
+      detail: 'Only doctors can view their profile.',
+      life: 3000,
+    });
+    return;
+  }
+  router.push('/doctor-profile');
+};
 
 // Initial data load
-onMounted(() => {
-  fetchDashboardData()
-})
+onMounted(async () => {
+  if (!(await authStore.checkAuth())) {
+    toast.add({
+      severity: 'error',
+      summary: 'Session Expired',
+      detail: 'Please log in again.',
+      life: 3000,
+    });
+    router.push('/login');
+    return;
+  }
+  await Promise.all([fetchDoctorProfile(), fetchDashboardData()]);
+});
 </script>
 
 <template>
   <div class="doctor-dashboard">
-    <h1 class="dashboard-title">Doctor Dashboard</h1>
-    
+    <div class="dashboard-header">
+      <h1 class="dashboard-title">Doctor Dashboard</h1>
+      <div class="header-actions">
+        <Button
+          v-if="isProfileIncomplete && !loadingProfile"
+          label="Complete Your Profile"
+          icon="pi pi-user-edit"
+          class="profile-button"
+          v-tooltip.bottom="'Complete your doctor profile'"
+          @click="goToDoctorRegistration"
+        />
+        <Button
+          icon="pi pi-user"
+          rounded
+          text
+          aria-label="View profile"
+          v-tooltip.bottom="'View your profile'"
+          @click="goToDoctorProfile"
+        />
+      </div>
+    </div>
+
     <!-- Loading state -->
     <div v-if="loading" class="loading-container">
       <ProgressSpinner />
       <p>Loading dashboard data...</p>
     </div>
-    
+
+    <!-- Dashboard content -->
     <div v-else class="dashboard-content">
       <!-- Stats overview -->
       <div class="stats-container">
@@ -123,7 +304,7 @@ onMounted(() => {
             </div>
           </template>
         </Card>
-        
+
         <Card class="stat-card">
           <template #content>
             <div class="stat-icon">
@@ -135,7 +316,7 @@ onMounted(() => {
             </div>
           </template>
         </Card>
-        
+
         <Card class="stat-card">
           <template #content>
             <div class="stat-icon">
@@ -147,7 +328,7 @@ onMounted(() => {
             </div>
           </template>
         </Card>
-        
+
         <Card class="stat-card">
           <template #content>
             <div class="stat-icon">
@@ -160,10 +341,10 @@ onMounted(() => {
           </template>
         </Card>
       </div>
-      
+
       <!-- Main dashboard content -->
       <div class="dashboard-grid">
-        <!-- Left column: Patient list & Appointments -->
+        <!-- Left column: Patients & Appointments -->
         <div class="dashboard-left">
           <!-- Recent patients -->
           <Card class="recent-patients">
@@ -175,24 +356,23 @@ onMounted(() => {
                   rounded
                   text
                   aria-label="View all patients"
-                  tooltip="View all patients"
-                  tooltipOptions={{ position: 'bottom' }}
-                  @click="$router.push('/doctor/patients')"
+                  v-tooltip.bottom="'View all patients'"
+                  @click="router.push('/doctor/patients')"
                 />
               </div>
             </template>
-            
+
             <template #content>
               <div class="patients-list">
                 <div
                   v-for="patient in recentPatients"
                   :key="patient.id"
                   class="patient-item"
-                  :class="{ active: selectedPatient && selectedPatient.id === patient.id }"
+                  :class="{ active: selectedPatient?.id === patient.id }"
                   @click="selectPatient(patient)"
                 >
                   <img
-                    :src="patient.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'"
+                    :src="patient.avatar || 'https://via.placeholder.com/40'"
                     :alt="`${patient.name}'s avatar`"
                     class="patient-avatar"
                   />
@@ -210,13 +390,12 @@ onMounted(() => {
                       rounded
                       text
                       size="small"
-                      @click.stop="$router.push(`/doctor/patients/${patient.id}`)"
-                      tooltip="View patient"
-                      tooltipOptions={{ position: 'bottom' }}
+                      v-tooltip.bottom="'View patient'"
+                      @click.stop="router.push(`/doctor/patients/${patient.id}`)"
                     />
                   </div>
                 </div>
-                
+
                 <div v-if="recentPatients.length === 0" class="no-data">
                   <i class="pi pi-users"></i>
                   <p>No recent patients</p>
@@ -224,7 +403,7 @@ onMounted(() => {
               </div>
             </template>
           </Card>
-          
+
           <!-- Upcoming appointments -->
           <Card class="upcoming-appointments">
             <template #header>
@@ -235,13 +414,12 @@ onMounted(() => {
                   rounded
                   text
                   aria-label="View all appointments"
-                  tooltip="View all appointments"
-                  tooltipOptions={{ position: 'bottom' }}
-                  @click="$router.push('/doctor/appointments')"
+                  v-tooltip.bottom="'View all appointments'"
+                  @click="router.push('/doctor/appointments')"
                 />
               </div>
             </template>
-            
+
             <template #content>
               <div class="appointments-list">
                 <div
@@ -255,7 +433,7 @@ onMounted(() => {
                   </div>
                   <div class="appointment-patient">
                     <img
-                      :src="appointment.patient.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'"
+                      :src="appointment.patient.avatar || 'https://via.placeholder.com/30'"
                       :alt="`${appointment.patient.name}'s avatar`"
                       class="patient-avatar"
                     />
@@ -268,13 +446,12 @@ onMounted(() => {
                       text
                       size="small"
                       aria-label="Start consultation"
-                      tooltip="Start consultation"
-                      tooltipOptions={{ position: 'bottom' }}
-                      @click="$router.push(`/doctor/consultations?appointmentId=${appointment.id}`)"
+                      v-tooltip.bottom="'Start consultation'"
+                      @click="router.push(`/doctor/consultations?appointmentId=${appointment.id}`)"
                     />
                   </div>
                 </div>
-                
+
                 <div v-if="upcomingAppointments.length === 0" class="no-data">
                   <i class="pi pi-calendar"></i>
                   <p>No upcoming appointments</p>
@@ -283,10 +460,9 @@ onMounted(() => {
             </template>
           </Card>
         </div>
-        
-        <!-- Right column: Patient data and charts -->
+
+        <!-- Right column: Patient health data -->
         <div class="dashboard-right">
-          <!-- Selected patient information -->
           <Card v-if="selectedPatient" class="patient-data">
             <template #header>
               <div class="card-header">
@@ -297,37 +473,34 @@ onMounted(() => {
                     rounded
                     text
                     aria-label="View medical records"
-                    tooltip="View medical records"
-                    tooltipOptions={{ position: 'bottom' }}
-                    @click="$router.push(`/doctor/patients/${selectedPatient.id}`)"
+                    v-tooltip.bottom="'View medical records'"
+                    @click="router.push(`/doctor/patients/${selectedPatient.id}`)"
                   />
                   <Button
                     icon="pi pi-refresh"
                     rounded
                     text
                     aria-label="Refresh data"
-                    tooltip="Refresh data"
-                    tooltipOptions={{ position: 'bottom' }}
+                    v-tooltip.bottom="'Refresh data'"
                     :loading="loadingPatientData"
                     @click="selectPatient(selectedPatient)"
                   />
                 </div>
               </div>
             </template>
-            
+
             <template #content>
               <div v-if="loadingPatientData" class="loading-data">
                 <ProgressSpinner />
                 <p>Loading patient data...</p>
               </div>
-              
+
               <div v-else-if="selectedPatientData" class="patient-vitals">
-                <!-- Heart rate chart -->
                 <VitalSignsChart
                   title="Heart Rate"
                   type="heart-rate"
                   :data="selectedPatientData.heartRate"
-                  height="250"
+                  :height="250"
                 >
                   <template #actions>
                     <Button
@@ -336,18 +509,16 @@ onMounted(() => {
                       text
                       size="small"
                       aria-label="Change time range"
-                      tooltip="Change time range"
-                      tooltipOptions={{ position: 'bottom' }}
+                      v-tooltip.bottom="'Change time range'"
                     />
                   </template>
                 </VitalSignsChart>
-                
-                <!-- Blood pressure chart -->
+
                 <VitalSignsChart
                   title="Blood Pressure"
                   type="blood-pressure"
                   :data="selectedPatientData.bloodPressure"
-                  height="250"
+                  :height="250"
                 >
                   <template #actions>
                     <Button
@@ -356,30 +527,29 @@ onMounted(() => {
                       text
                       size="small"
                       aria-label="Change time range"
-                      tooltip="Change time range"
-                      tooltipOptions={{ position: 'bottom' }}
+                      v-tooltip.bottom="'Change time range'"
                     />
                   </template>
                 </VitalSignsChart>
               </div>
-              
+
               <div v-else class="no-data">
                 <i class="pi pi-chart-line"></i>
                 <p>No health data available for this patient</p>
               </div>
             </template>
-            
+
             <template v-if="selectedPatientData" #footer>
               <div class="card-footer">
                 <Button
                   label="View Full Health Record"
                   icon="pi pi-chart-line"
-                  @click="$router.push(`/doctor/patients/${selectedPatient.id}?tab=health`)"
+                  @click="router.push(`/doctor/patients/${selectedPatient.id}?tab=health`)"
                 />
               </div>
             </template>
           </Card>
-          
+
           <Card v-else class="no-patient-selected">
             <template #content>
               <div class="no-data large">
@@ -395,222 +565,279 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
+$primary: #9b87f5;
+$primary-light: rgba(155, 135, 245, 0.1);
+$primary-dark: #7e69ab;
+$neutral-100: #f7fafc;
+$neutral-500: #a0aec0;
+$neutral-600: #718096;
+$neutral-800: #2d3748;
+$radius-md: 8px;
+$radius-lg: 12px;
+$space-1: 0.25rem;
+$space-2: 0.5rem;
+$space-3: 1rem;
+$space-4: 1.5rem;
+$space-6: 3rem;
+$shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+$transition-fast: 0.2s ease;
+$transition-normal: 0.3s ease;
+$font-sm: 0.875rem;
+$font-md: 1rem;
+$font-lg: 1.125rem;
+$font-2xl: 1.5rem;
+
 .doctor-dashboard {
-  .dashboard-title {
-    font-size: var(--font-2xl);
-    margin-bottom: var(--space-4);
-    color: var(--neutral-800);
+  padding: $space-4;
+  background-color: $neutral-100;
+
+  .dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $space-4;
+
+    .dashboard-title {
+      font-size: $font-2xl;
+      margin: 0;
+      color: $neutral-800;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: $space-2;
+
+      .profile-button {
+        background-color: $primary;
+        border-color: $primary;
+        color: white;
+        border-radius: $radius-md;
+        padding: $space-2 $space-3;
+        font-size: $font-md;
+        transition: background-color $transition-fast;
+
+        &:hover {
+          background-color: $primary-dark;
+        }
+      }
+    }
   }
-  
+
   .loading-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: var(--space-6);
-    gap: var(--space-3);
-    
+    padding: $space-6;
+    gap: $space-3;
+
     p {
-      color: var(--neutral-600);
-      font-size: var(--font-lg);
+      color: $neutral-600;
+      font-size: $font-lg;
     }
   }
-  
+
   .dashboard-content {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    
+    gap: $space-4;
+
     .stats-container {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: var(--space-3);
-      
+      gap: $space-3;
+
       .stat-card {
-        border-radius: var(--radius-lg);
-        transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-        
+        border-radius: $radius-lg;
+        transition: transform $transition-normal, box-shadow $transition-normal;
+
         &:hover {
           transform: translateY(-3px);
-          box-shadow: var(--shadow-lg);
+          box-shadow: $shadow-lg;
         }
-        
+
         :deep(.p-card-content) {
-          padding: var(--space-3);
+          padding: $space-3;
           display: flex;
           align-items: center;
-          gap: var(--space-3);
+          gap: $space-3;
         }
-        
+
         .stat-icon {
           display: flex;
           align-items: center;
           justify-content: center;
           width: 50px;
           height: 50px;
-          background-color: var(--primary-light);
+          background-color: $primary-light;
           border-radius: 12px;
-          
+
           i {
             font-size: 24px;
-            color: var(--primary);
+            color: $primary;
           }
         }
-        
+
         .stat-info {
           h3 {
-            font-size: var(--font-2xl);
-            margin: 0 0 var(--space-1);
-            color: var(--neutral-800);
+            font-size: $font-2xl;
+            margin: 0 0 $space-1;
+            color: $neutral-800;
           }
-          
+
           p {
-            font-size: var(--font-sm);
+            font-size: $font-sm;
             margin: 0;
-            color: var(--neutral-600);
+            color: $neutral-600;
           }
         }
       }
     }
-    
+
     .dashboard-grid {
       display: grid;
       grid-template-columns: 1fr 2fr;
-      gap: var(--space-3);
-      
+      gap: $space-3;
+
       .dashboard-left {
         display: flex;
         flex-direction: column;
-        gap: var(--space-3);
-        
+        gap: $space-3;
+
         .recent-patients,
         .upcoming-appointments {
-          border-radius: var(--radius-lg);
-          
+          border-radius: $radius-lg;
+
           :deep(.p-card-header) {
-            padding: var(--space-3);
-            padding-bottom: 0;
+            padding: $space-3 $space-3 0;
           }
-          
+
           :deep(.p-card-content) {
-            padding: var(--space-3);
+            padding: $space-3;
           }
-          
+
           .card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            
+
             h2 {
-              font-size: var(--font-lg);
+              font-size: $font-lg;
               margin: 0;
-              color: var(--neutral-800);
+              color: $neutral-800;
             }
           }
         }
-        
+
         .patients-list {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
-          
+          gap: $space-2;
+
           .patient-item {
             display: flex;
             align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-2);
-            border-radius: var(--radius-md);
+            gap: $space-2;
+            padding: $space-2;
+            border-radius: $radius-md;
             cursor: pointer;
-            transition: background-color var(--transition-fast);
-            
+            transition: background-color $transition-fast;
+
             &:hover {
-              background-color: var(--neutral-100);
+              background-color: $neutral-100;
             }
-            
+
             &.active {
-              background-color: var(--primary-light);
-              
+              background-color: $primary-light;
+
               .patient-name {
-                color: var(--primary-dark);
+                color: $primary-dark;
               }
             }
-            
+
             .patient-avatar {
               width: 40px;
               height: 40px;
               border-radius: 50%;
               object-fit: cover;
             }
-            
+
             .patient-info {
               flex: 1;
-              
+
               .patient-name {
-                font-size: var(--font-md);
+                font-size: $font-md;
                 font-weight: 600;
-                margin: 0 0 var(--space-1);
-                color: var(--neutral-800);
+                margin: 0 0 $space-1;
+                color: $neutral-800;
               }
-              
+
               .patient-details {
                 display: flex;
                 align-items: center;
-                gap: var(--space-1);
-                font-size: var(--font-sm);
-                color: var(--neutral-600);
+                gap: $space-1;
+                font-size: $font-sm;
+                color: $neutral-600;
                 margin: 0;
-                
+
                 .divider {
                   font-size: 10px;
                 }
               }
             }
+
+            .patient-actions {
+              display: flex;
+              gap: $space-1;
+            }
           }
         }
-        
+
         .appointments-list {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
-          
+          gap: $space-2;
+
           .appointment-item {
-            padding: var(--space-2);
-            border-radius: var(--radius-md);
-            background-color: var(--neutral-100);
-            
+            padding: $space-2;
+            border-radius: $radius-md;
+            background-color: $neutral-100;
+
             .appointment-time {
               display: flex;
               align-items: center;
-              gap: var(--space-1);
-              font-size: var(--font-sm);
-              color: var(--neutral-600);
-              margin-bottom: var(--space-1);
-              
+              gap: $space-1;
+              font-size: $font-sm;
+              color: $neutral-600;
+              margin-bottom: $space-1;
+
               i {
                 font-size: 14px;
               }
             }
-            
+
             .appointment-patient {
               display: flex;
               align-items: center;
-              gap: var(--space-2);
-              margin-bottom: var(--space-1);
-              
+              gap: $space-2;
+              margin-bottom: $space-1;
+
               .patient-avatar {
                 width: 30px;
                 height: 30px;
                 border-radius: 50%;
                 object-fit: cover;
               }
-              
+
               .patient-name {
-                font-size: var(--font-md);
+                font-size: $font-md;
                 font-weight: 500;
-                color: var(--neutral-800);
+                color: $neutral-800;
               }
             }
-            
+
             .appointment-actions {
               display: flex;
               justify-content: flex-end;
@@ -618,67 +845,66 @@ onMounted(() => {
           }
         }
       }
-      
+
       .dashboard-right {
         .patient-data {
           height: 100%;
-          border-radius: var(--radius-lg);
-          
+          border-radius: $radius-lg;
+
           :deep(.p-card-header) {
-            padding: var(--space-3);
-            padding-bottom: 0;
+            padding: $space-3 $space-3 0;
           }
-          
+
           :deep(.p-card-content) {
-            padding: var(--space-3);
+            padding: $space-3;
           }
-          
+
           :deep(.p-card-footer) {
-            padding: var(--space-3);
+            padding: $space-3;
             text-align: center;
           }
-          
+
           .card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            
+
             h2 {
-              font-size: var(--font-lg);
+              font-size: $font-lg;
               margin: 0;
-              color: var(--neutral-800);
+              color: $neutral-800;
             }
-            
+
             .header-actions {
               display: flex;
-              gap: var(--space-1);
+              gap: $space-1;
             }
           }
-          
+
           .loading-data {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: var(--space-4);
-            gap: var(--space-2);
-            
+            padding: $space-4;
+            gap: $space-2;
+
             p {
-              color: var(--neutral-600);
+              color: $neutral-600;
             }
           }
-          
+
           .patient-vitals {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: var(--space-3);
+            gap: $space-3;
           }
         }
-        
+
         .no-patient-selected {
           height: 100%;
-          border-radius: var(--radius-lg);
-          
+          border-radius: $radius-lg;
+
           :deep(.p-card-content) {
             height: 100%;
             display: flex;
@@ -689,49 +915,60 @@ onMounted(() => {
       }
     }
   }
-  
+
   .no-data {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: var(--space-4);
-    color: var(--neutral-500);
-    
+    padding: $space-4;
+    color: $neutral-500;
+
     i {
       font-size: 24px;
-      margin-bottom: var(--space-2);
+      margin-bottom: $space-2;
     }
-    
+
     p {
       margin: 0;
       text-align: center;
     }
-    
+
     &.large {
-      padding: var(--space-6);
-      
+      padding: $space-6;
+
       i {
         font-size: 32px;
       }
-      
+
       p {
-        font-size: var(--font-lg);
+        font-size: $font-lg;
       }
     }
   }
 }
 
-// Responsive styles
 @media (max-width: 1200px) {
   .doctor-dashboard {
+    .dashboard-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: $space-2;
+
+      .header-actions {
+        align-self: flex-end;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+    }
+
     .stats-container {
       grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .dashboard-grid {
       grid-template-columns: 1fr;
-      
+
       .dashboard-right {
         .patient-data {
           .patient-vitals {
@@ -745,8 +982,24 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .doctor-dashboard {
+    padding: $space-3;
+
     .stats-container {
       grid-template-columns: 1fr;
+    }
+
+    .dashboard-title {
+      font-size: $font-lg;
+    }
+
+    .header-actions {
+      width: 100%;
+      justify-content: space-between;
+
+      .profile-button {
+        width: 100%;
+        justify-content: center;
+      }
     }
   }
 }

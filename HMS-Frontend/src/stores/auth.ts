@@ -72,12 +72,14 @@ export const useAuthStore = defineStore('auth', () => {
     email,
     password,
     profilePicture,
+    role,
   }: {
     firstName: string;
     lastName: string;
     email: string;
     password: string;
     profilePicture?: string;
+    role: 'patient' | 'doctor';
   }) {
     loading.value = true;
     error.value = null;
@@ -88,6 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
         lastName,
         email,
         password,
+        role,
         ...(profilePicture && { profilePicture }),
       };
 

@@ -14,7 +14,7 @@ export declare class UsersService {
         limit: number;
     }>;
     findOne(id: string): Promise<User>;
-    findByEmail(email: string): Promise<User>;
+    findByEmail(email: string): Promise<any>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<User>;
     remove(id: string): Promise<User>;
     setRefreshToken(userId: string, refreshToken: string | null): Promise<void>;

@@ -17,8 +17,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto) {
+    try {
+      console.log('Login request received:', loginDto);
+      
+      // First validate credentials
+      const validatedUser = await this.authService.validateUser(loginDto.email, loginDto.password);
+      console.log('Credentials validated, user:', validatedUser);
+      
+      // Then proceed with login
+      return this.authService.login(validatedUser);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   }
 
   @Post('register')

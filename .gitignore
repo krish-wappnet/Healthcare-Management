@@ -1,5 +1,5 @@
 /HMS-Backend/node_modules/*
 
-/HMS-Backend/.env.example
+/HMS-Backend/.env
 
 /HMS-Backend/dist

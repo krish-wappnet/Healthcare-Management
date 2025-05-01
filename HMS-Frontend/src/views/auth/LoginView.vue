@@ -122,6 +122,15 @@ import { ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 import { useToast } from 'primevue/usetoast';
+import {jwtDecode} from 'jwt-decode';
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -200,11 +209,6 @@ const validatePassword = (): boolean => {
     return false;
   }
 
-  // if (!/[A-Z]/.test(form.password)) {
-  //   errors.password = 'Password must contain at least one uppercase letter';
-  //   return false;
-  // }
-
   if (!/[0-9]/.test(form.password)) {
     errors.password = 'Password must contain at least one number';
     return false;
@@ -238,6 +242,20 @@ const handleLogin = async () => {
     const success = await authStore.login(form.email, form.password);
     
     if (success) {
+      // Log the auth token
+      console.log('Auth token:', authStore.token);
+      // Decode and log token contents
+      if (authStore.token) {
+        try {
+          const decoded = jwtDecode<JwtPayload>(authStore.token);
+          console.log('Decoded token:', decoded);
+        } catch (decodeError) {
+          console.error('Failed to decode token:', decodeError);
+        }
+      } else {
+        console.error('No token available after login');
+      }
+
       showSuccessToast();
       const redirectPath = await authStore.redirectBasedOnRole();
       await router.push(redirectPath);

@@ -22,26 +22,117 @@ let AuthService = class AuthService {
     }
     async validateUser(email, password) {
         try {
+            console.log('Attempting to validate user with email:', email);
             const user = await this.usersService.findByEmail(email);
-            const isPasswordValid = await bcrypt.compare(password, user.password);
-            if (isPasswordValid) {
-                const { password, ...result } = user.toObject();
-                return result;
+            console.log('User fetched from DB:', user);
+            if (!user) {
+                console.error('User not found for email:', email);
+                throw new common_1.UnauthorizedException('Invalid credentials');
             }
-            return null;
+            if (!user.password) {
+                console.error('User has no password:', user);
+                throw new common_1.UnauthorizedException('Invalid credentials');
+            }
+            console.log('Comparing password with hashed:', user.password.substring(0, 20) + '...');
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+            console.log('Password comparison result:', isPasswordValid);
+            if (!isPasswordValid) {
+                console.error('Invalid password for email:', email);
+                throw new common_1.UnauthorizedException('Invalid credentials');
+            }
+            const result = {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profilePicture: user.profilePicture,
+                isActive: user.isActive,
+                emailVerified: user.emailVerified
+            };
+            console.log('Returning validated user data:', result);
+            return result;
         }
         catch (error) {
-            return null;
+            console.error('Error in validateUser:', error);
+            throw error;
         }
     }
-    async login(loginDto) {
-        const user = await this.validateUser(loginDto.email, loginDto.password);
-        if (!user) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
+    async login(user) {
+        try {
+            if (!user || typeof user !== 'object') {
+                console.error('Invalid user object format:', user);
+                throw new common_1.UnauthorizedException('Invalid user data');
+            }
+            if (!user.id || !user.email) {
+                console.error('Missing required fields in user object:', user);
+                throw new common_1.UnauthorizedException('Invalid user data');
+            }
+            console.log('Generating JWT for user:', {
+                id: user.id,
+                email: user.email,
+                role: user.role
+            });
+            const payload = {
+                sub: user.id,
+                email: user.email,
+                role: user.role || user_roles_enum_1.UserRole.PATIENT
+            };
+            console.log('JWT payload:', payload);
+            const accessToken = this.jwtService.sign(payload);
+            console.log('Generated access token:', this.jwtService.decode(accessToken));
+            const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+            if (!user.id) {
+                console.error('Cannot set refresh token: Missing user ID');
+                throw new common_1.UnauthorizedException('Invalid user data');
+            }
+            await this.usersService.setRefreshToken(user.id, refreshToken);
+            return {
+                accessToken,
+                refreshToken,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    profilePicture: user.profilePicture
+                }
+            };
         }
+        catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
+    }
+    async register(registerDto) {
+        console.log('Register payload:', registerDto);
+        const { email, password, role } = registerDto;
+        if (role === user_roles_enum_1.UserRole.ADMIN) {
+            throw new common_1.BadRequestException('Admin role cannot be selected during registration');
+        }
+        try {
+            const existing = await this.usersService.findByEmail(email);
+            if (existing) {
+                throw new common_1.BadRequestException('User already exists');
+            }
+        }
+        catch (error) {
+            if (error instanceof common_1.NotFoundException) {
+            }
+            else {
+                throw error;
+            }
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = await this.usersService.create({
+            ...registerDto,
+            password: hashedPassword,
+            role,
+        });
         const tokens = await this.getTokens(user._id, user.email, user.role);
         await this.usersService.setRefreshToken(user._id, tokens.refreshToken);
-        return {
+        const response = {
             user: {
                 id: user._id,
                 email: user.email,
@@ -50,23 +141,14 @@ let AuthService = class AuthService {
                 role: user.role,
                 profilePicture: user.profilePicture,
             },
-            ...tokens,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
         };
-    }
-    async register(registerDto) {
-        const newUser = await this.usersService.create({
-            ...registerDto,
-            role: user_roles_enum_1.UserRole.PATIENT,
-        });
-        const tokens = await this.getTokens(newUser._id, newUser.email, newUser.role);
-        await this.usersService.setRefreshToken(newUser._id, tokens.refreshToken);
-        const { password, ...result } = newUser.toObject();
-        return {
-            user: result,
-            ...tokens,
-        };
+        console.log('Register response:', response);
+        return response;
     }
     async refreshTokens(userId, refreshToken) {
+        console.log(`Refreshing tokens for userId: ${userId}`);
         try {
             const user = await this.usersService.findOne(userId);
             if (!user || !user.refreshToken) {
@@ -81,10 +163,12 @@ let AuthService = class AuthService {
             return tokens;
         }
         catch (error) {
+            console.error('Error refreshing tokens:', error.message);
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
     }
     async logout(userId) {
+        console.log(`Logging out userId: ${userId}`);
         await this.usersService.setRefreshToken(userId, null);
         return { message: 'Logout successful' };
     }
