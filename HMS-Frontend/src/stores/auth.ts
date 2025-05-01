@@ -1,6 +1,6 @@
 // stores/auth.ts
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { apiClient } from '../services/api';
 import { useRouter } from 'vue-router';
 
@@ -31,8 +31,10 @@ interface CreateDoctorDto {
 
 export const useAuthStore = defineStore('auth', () => {
   const router = useRouter();
-  const token = ref<string | null>(localStorage.getItem('token'));
-  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'));
+  
+  // Load from localStorage on store initialization
+  const token = ref<string | null>(localStorage.getItem('token') || null);
+  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken') || null);
   const user = ref<User | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -40,6 +42,23 @@ export const useAuthStore = defineStore('auth', () => {
   // Computed properties
   const isAuthenticated = computed(() => !!token.value);
   const userRole = computed(() => user.value?.role || null);
+
+  // Watch for token changes and persist to localStorage
+  watch(token, (newToken) => {
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+    } else {
+      localStorage.removeItem('token');
+    }
+  });
+
+  watch(refreshToken, (newRefreshToken) => {
+    if (newRefreshToken) {
+      localStorage.setItem('refreshToken', newRefreshToken);
+    } else {
+      localStorage.removeItem('refreshToken');
+    }
+  });
 
   // Actions
   async function login(email: string, password: string) {
@@ -50,19 +69,40 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await apiClient.post('/auth/login', { email, password });
       const { accessToken, refreshToken: newRefreshToken, user: userData } = response.data;
 
+      // Set auth state
       token.value = accessToken;
       refreshToken.value = newRefreshToken;
       user.value = userData;
 
+      // Persist to localStorage
       localStorage.setItem('token', accessToken);
       localStorage.setItem('refreshToken', newRefreshToken);
+      localStorage.setItem('user', JSON.stringify(userData));
 
+      // Redirect based on role
+      const redirectPath = getRedirectPath();
+      router.push(redirectPath);
+      
       return true;
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Invalid email or password';
       return false;
     } finally {
       loading.value = false;
+    }
+  }
+
+  function getRedirectPath() {
+    const role = user.value?.role;
+    switch (role) {
+      case 'admin':
+        return '/admin';
+      case 'doctor':
+        return '/doctor';
+      case 'patient':
+        return '/patient';
+      default:
+        return '/login';
     }
   }
 
@@ -135,82 +175,46 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function redirectBasedOnRole() {
-    if (!user.value) return '/login';
+  async function checkAuth() {
+    const storedToken = localStorage.getItem('token');
     
-    const role = user.value.role.toLowerCase();
-    const routes: Record<UserRole, string> = {
-      admin: '/admin',
-      doctor: '/doctor',
-      patient: '/patient',
-    };
-    
-    return routes[role] || '/';
+    if (!storedToken) {
+      return false;
+    }
+
+    try {
+      // Try to get user profile to validate token
+      const response = await apiClient.get('/auth/profile');
+      user.value = response.data;
+      return true;
+    } catch (error) {
+      // Clear auth state on error
+      token.value = null;
+      refreshToken.value = null;
+      user.value = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      return false;
+    }
   }
 
   async function logout() {
     try {
-      if (token.value) {
-        await apiClient.post('/auth/logout', null, {
-          headers: { Authorization: `Bearer ${token.value}` },
-        });
-      }
-    } catch (err) {
-      console.error('Logout API error:', err);
+      await apiClient.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
-
+    
+    // Clear auth state
     token.value = null;
     refreshToken.value = null;
     user.value = null;
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    
     router.push('/login');
-  }
-
-  async function checkAuth() {
-    if (!token.value) return false;
-
-    loading.value = true;
-
-    try {
-      const response = await apiClient.get('/auth/profile', {
-        headers: { Authorization: `Bearer ${token.value}` },
-      });
-      user.value = response.data;
-      return true;
-    } catch (err: any) {
-      console.error('Auth check error:', err);
-
-      if (err.response?.status === 401) {
-        try {
-          const response = await apiClient.post('/auth/refresh', {
-            refreshToken: refreshToken.value,
-          });
-          token.value = response.data.accessToken;
-          refreshToken.value = response.data.refreshToken;
-          localStorage.setItem('token', token.value);
-          localStorage.setItem('refreshToken', refreshToken.value!);
-
-          // Retry profile fetch
-          const retryResponse = await apiClient.get('/auth/profile', {
-            headers: { Authorization: `Bearer ${token.value}` },
-          });
-          user.value = retryResponse.data;
-          return true;
-        } catch (refreshErr) {
-          token.value = null;
-          refreshToken.value = null;
-          user.value = null;
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          return false;
-        }
-      }
-
-      return false;
-    } finally {
-      loading.value = false;
-    }
   }
 
   async function updateProfile(userData: Partial<User>) {
@@ -245,6 +249,6 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     checkAuth,
     updateProfile,
-    redirectBasedOnRole,
+    getRedirectPath,
   };
 });

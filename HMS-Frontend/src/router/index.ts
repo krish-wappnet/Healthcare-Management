@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore, UserRole } from '../stores/auth'
+import { useRouter } from 'vue-router'
 
 // Lazy-loaded components
 const Login = () => import('../views/auth/LoginView.vue')
@@ -13,6 +14,7 @@ const AdminSettings = () => import('../views/admin/SettingsView.vue')
 
 // Doctor routes
 const DoctorDashboard = () => import('../views/doctor/DashboardView.vue')
+const DoctorProfile = () => import('../views/doctor/DoctorProfile.vue')
 const DoctorPatients = () => import('../views/doctor/PatientsView.vue')
 const DoctorAppointments = () => import('../views/doctor/AppointmentsView.vue')
 const DoctorConsultations = () => import('../views/doctor/ConsultationsView.vue')
@@ -27,10 +29,34 @@ const PatientDashboard = () => import('../views/patient/DashboardView.vue')
 // const PatientHealth = () => import('../views/patient/HealthView.vue')
 // const PatientChatbot = () => import('../views/patient/ChatbotView.vue')
 
+// Auth guard
+const authGuard = async (to: RouteLocationNormalized) => {
+  const authStore = useAuthStore();
+  
+  // Check if user is authenticated
+  if (!await authStore.checkAuth()) {
+    return { name: 'login' };
+  }
+
+  // Check if user has required role
+  const requiredRole = to.meta.role as UserRole;
+  if (requiredRole && authStore.userRole !== requiredRole) {
+    // Redirect to appropriate dashboard based on user's role
+    switch (authStore.userRole) {
+      case 'admin': return { name: 'admin' };
+      case 'doctor': return { name: 'doctor' };
+      case 'patient': return { name: 'patient' };
+      default: return { name: 'login' };
+    }
+  }
+
+  return true;
+};
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // Auth routes
+    // Public routes
     {
       path: '/login',
       name: 'login',
@@ -43,33 +69,45 @@ const router = createRouter({
       component: Register,
       meta: { requiresAuth: false }
     },
-    { path: '/role-selection', component: RoleSelection },
+    {
+      path: '/role-selection',
+      component: RoleSelection,
+      meta: { requiresAuth: false }
+    },
+    {
+      path: '/doctor-registration',
+      component: DoctorRegistration,
+      meta: { requiresAuth: false }
+    },
 
-  { path: '/doctor-registration', component: DoctorRegistration },
     // Admin routes
     {
       path: '/admin',
       name: 'admin',
       component: AdminDashboard,
-      meta: { requiresAuth: true, role: 'admin' }
+      meta: { requiresAuth: true, role: 'admin' },
+      beforeEnter: authGuard
     },
     {
       path: '/admin/users',
       name: 'admin-users',
       component: AdminUsers,
-      meta: { requiresAuth: true, role: 'admin' }
+      meta: { requiresAuth: true, role: 'admin' },
+      beforeEnter: authGuard
     },
     {
       path: '/admin/audit-logs',
       name: 'admin-audit-logs',
       component: AdminAuditLogs,
-      meta: { requiresAuth: true, role: 'admin' }
+      meta: { requiresAuth: true, role: 'admin' },
+      beforeEnter: authGuard
     },
     {
       path: '/admin/settings',
       name: 'admin-settings',
       component: AdminSettings,
-      meta: { requiresAuth: true, role: 'admin' }
+      meta: { requiresAuth: true, role: 'admin' },
+      beforeEnter: authGuard
     },
 
     // Doctor routes
@@ -77,66 +115,46 @@ const router = createRouter({
       path: '/doctor',
       name: 'doctor',
       component: DoctorDashboard,
-      meta: { requiresAuth: true, role: 'doctor' }
+      meta: { requiresAuth: true, role: 'doctor' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/doctor/profile',
+      name: 'doctor-profile',
+      component: DoctorProfile,
+      meta: { requiresAuth: true, role: 'doctor' },
+      beforeEnter: authGuard
     },
     {
       path: '/doctor/patients',
       name: 'doctor-patients',
       component: DoctorPatients,
-      meta: { requiresAuth: true, role: 'doctor' }
+      meta: { requiresAuth: true, role: 'doctor' },
+      beforeEnter: authGuard
     },
     {
       path: '/doctor/appointments',
       name: 'doctor-appointments',
       component: DoctorAppointments,
-      meta: { requiresAuth: true, role: 'doctor' }
+      meta: { requiresAuth: true, role: 'doctor' },
+      beforeEnter: authGuard
     },
     {
       path: '/doctor/consultations',
       name: 'doctor-consultations',
       component: DoctorConsultations,
-      meta: { requiresAuth: true, role: 'doctor' }
+      meta: { requiresAuth: true, role: 'doctor' },
+      beforeEnter: authGuard
     },
-    // {
-    //   path: '/doctor/patients/:id',
-    //   name: 'patient-detail',
-    //   component: PatientDetail,
-    //   meta: { requiresAuth: true, role: 'doctor' }
-    // },
 
     // Patient routes
     {
       path: '/patient',
       name: 'patient',
       component: PatientDashboard,
-      meta: { requiresAuth: true, role: 'patient' }
+      meta: { requiresAuth: true, role: 'patient' },
+      beforeEnter: authGuard
     },
-
-    // Uncomment these when views are implemented
-    // {
-    //   path: '/patient/appointments',
-    //   name: 'patient-appointments',
-    //   component: PatientAppointments,
-    //   meta: { requiresAuth: true, role: 'patient' }
-    // },
-    // {
-    //   path: '/patient/consultations',
-    //   name: 'patient-consultations',
-    //   component: PatientConsultations,
-    //   meta: { requiresAuth: true, role: 'patient' }
-    // },
-    // {
-    //   path: '/patient/health',
-    //   name: 'patient-health',
-    //   component: PatientHealth,
-    //   meta: { requiresAuth: true, role: 'patient' }
-    // },
-    // {
-    //   path: '/patient/chatbot',
-    //   name: 'patient-chatbot',
-    //   component: PatientChatbot,
-    //   meta: { requiresAuth: true, role: 'patient' }
-    // },
 
     // Redirect root to appropriate dashboard based on role
     {
@@ -157,31 +175,9 @@ const router = createRouter({
     // Catch-all route
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/'
+      redirect: '/login'
     }
   ]
-})
-
-// Navigation Guard
-router.beforeEach(async (to: RouteLocationNormalized, _from, next) => {
-  const authStore = useAuthStore()
-
-  if (to.meta.requiresAuth !== false) {
-    if (!authStore.isAuthenticated) {
-      return next({ name: 'login' })
-    }
-
-    if (to.meta.role && to.meta.role !== authStore.userRole) {
-      switch (authStore.userRole) {
-        case 'admin': return next({ name: 'admin' })
-        case 'doctor': return next({ name: 'doctor' })
-        case 'patient': return next({ name: 'patient' })
-        default: return next({ name: 'login' })
-      }
-    }
-  }
-
-  next()
 })
 
 export default router

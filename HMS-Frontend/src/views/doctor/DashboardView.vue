@@ -88,6 +88,7 @@ const selectedPatient = ref<Patient | null>(null);
 const selectedPatientData = ref<HealthData | null>(null);
 const loadingPatientData = ref(false);
 const doctorProfile = ref<DoctorProfile | null>(null);
+const hasProfile = ref(false);
 const loadingProfile = ref(false);
 
 // Computed properties
@@ -110,6 +111,7 @@ const fetchDoctorProfile = async () => {
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
     doctorProfile.value = response.data;
+    hasProfile.value = true;
   } catch (error: any) {
     console.error('Error fetching doctor profile:', error);
     toast.add({
@@ -240,7 +242,20 @@ const goToDoctorProfile = () => {
     });
     return;
   }
-  router.push('/doctor-profile');
+  
+  // Check if profile exists
+  if (!doctorProfile.value) {
+    toast.add({
+      severity: 'warning',
+      summary: 'Profile Required',
+      detail: 'Please complete your doctor profile first.',
+      life: 3000,
+    });
+    router.push('/doctor-registration');
+    return;
+  }
+  
+  router.push('/doctor/profile');
 };
 
 // Initial data load
@@ -248,14 +263,40 @@ onMounted(async () => {
   if (!(await authStore.checkAuth())) {
     toast.add({
       severity: 'error',
-      summary: 'Session Expired',
-      detail: 'Please log in again.',
-      life: 3000,
+      summary: 'Authentication Required',
+      detail: 'Please login to continue',
+      life: 3000
     });
     router.push('/login');
     return;
   }
-  await Promise.all([fetchDoctorProfile(), fetchDashboardData()]);
+
+  try {
+    // Fetch doctor profile
+    const profileResponse = await apiClient.get('/doctors/profile');
+    doctorProfile.value = profileResponse.data;
+    hasProfile.value = true;
+
+    // Fetch dashboard data
+    await fetchDashboardData();
+  } catch (error) {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      authStore.logout();
+      router.push('/login');
+    } else if (error.response?.status === 404) {
+      // No doctor profile found
+      hasProfile.value = false;
+      router.push('/doctor-registration');
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to load dashboard data',
+        life: 3000
+      });
+    }
+  }
 });
 </script>
 
