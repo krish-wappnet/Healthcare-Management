@@ -79,6 +79,25 @@ const appointmentForm = ref({
   paymentAmount: 150
 });
 
+const displayHealthDeviceModal = ref(false);
+const healthDeviceForm = ref({
+  deviceId: '',
+  deviceType: 'smartwatch',
+  timestamp: dayjs().toISOString(),
+  data: {
+    heartRate: 75,
+    bloodPressure: "120/80",
+    oxygenSaturation: 98,
+    temperature: 98.6,
+    steps: 8500
+  },
+  isAbnormal: false,
+  abnormalityReason: "",
+  notificationSent: false
+});
+
+const healthDeviceData = ref([]); // Initialize as empty array
+
 const selectedDoctorFee = computed(() => {
   if (!selectedDoctor.value) return null;
   const doctor = doctors.value.find(d => d.value === selectedDoctor.value);
@@ -243,9 +262,101 @@ const clearDoctor = () => {
   appointmentForm.value.paymentAmount = 150; // Reset payment amount
 };
 
+const submitHealthDevice = async () => {
+  try {
+    if (!patientId.value) {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'Patient ID not found', life: 3000 });
+      return;
+    }
+
+    const response = await apiClient.post('/health-devices', {
+      patient: patientId.value,
+      ...healthDeviceForm.value
+    });
+
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Health device data added successfully', life: 3000 });
+    displayHealthDeviceModal.value = false;
+    resetHealthDeviceForm();
+    await fetchHealthDeviceData();
+  } catch (err) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to add health device data', life: 3000 });
+  }
+};
+
+const resetHealthDeviceForm = () => {
+  healthDeviceForm.value = {
+    deviceId: '',
+    deviceType: 'smartwatch',
+    timestamp: dayjs().toISOString(),
+    data: {
+      heartRate: 75,
+      bloodPressure: "120/80",
+      oxygenSaturation: 98,
+      temperature: 98.6,
+      steps: 8500
+    },
+    isAbnormal: false,
+    abnormalityReason: "",
+    notificationSent: false
+  };
+};
+
+const fetchHealthDeviceData = async () => {
+  try {
+    if (!patientId.value) {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'Patient ID not found', life: 3000 });
+      return;
+    }
+
+    const response = await apiClient.get(`/health-devices/patient/${patientId.value}?page=1&limit=10`);
+    healthDeviceData.value = response.data.data || [];
+    
+    // Log the data to debug
+    console.log('Health device data:', healthDeviceData.value);
+  } catch (err) {
+    console.error('Error fetching health device data:', err);
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to fetch health device data', life: 3000 });
+  }
+};
+
+const simulateHealthDevice = async () => {
+  try {
+    if (!patientId.value || healthDeviceData.value.length === 0) {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'No health device data available', life: 3000 });
+      return;
+    }
+
+    const deviceData = healthDeviceData.value[0];
+    
+    // Make the API call with the specific endpoint and data structure
+    const response = await apiClient.post('/health-devices/simulate', {
+      patient: patientId.value,
+      deviceType: deviceData.deviceType.toLowerCase(), // Ensure it's lowercase to match backend
+      deviceId: deviceData.deviceId
+    });
+
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Health device simulation started', life: 3000 });
+    
+    // Refresh the health device data to show updated values
+    await fetchHealthDeviceData();
+  } catch (err) {
+    console.error('Error simulating health device:', err);
+    toast.add({ severity: 'error', summary: 'Error', detail: err.response?.data?.message || 'Failed to start simulation', life: 3000 });
+  }
+};
+
+const handleHealthDeviceAction = () => {
+  if (healthDeviceData.value.length > 0) {
+    simulateHealthDevice();
+  } else {
+    displayHealthDeviceModal.value = true;
+  }
+};
+
 onMounted(async () => {
   await fetchDashboardData();
   await fetchPatientId();
+  await fetchHealthDeviceData();
 });
 </script>
 
@@ -271,6 +382,22 @@ onMounted(async () => {
         <div class="welcome-content">
           <h2>Welcome back, {{ authStore.user?.firstName || 'Patient' }}</h2>
           <p>Here's a summary of your health data and upcoming appointments</p>
+          <div class="button-group">
+            <Button 
+              v-if="healthDeviceData.length === 0"
+              label="Add Device" 
+              icon="pi pi-plus" 
+              class="p-button-success"
+              @click="displayHealthDeviceModal = true"
+            />
+            <Button 
+              v-if="healthDeviceData.length > 0"
+              label="Simulate"
+              icon="pi pi-play"
+              class="p-button-success"
+              @click="simulateHealthDevice"
+            />
+          </div>
         </div>
 
         <div v-if="upcomingAppointment" class="appointment-alert">
@@ -302,37 +429,40 @@ onMounted(async () => {
       </div>
 
       <!-- Health statistics -->
-      <div class="health-stats">
+      <div class="health-stats" v-if="healthDeviceData.length > 0">
         <HealthDataCard
           title="Heart Rate"
-          :value="healthData?.heartRate?.value || 0"
+          :value="healthDeviceData[0].data.heartRate"
           type="heart-rate"
-          :change="healthData?.heartRate?.change || 0"
-          :time="healthData?.heartRate?.time || 'N/A'"
+          :time="formatDate(healthDeviceData[0].timestamp)"
           :loading="loading"
         />
         <HealthDataCard
           title="Blood Pressure"
-          :value="healthData?.bloodPressure?.value || 0"
+          :value="healthDeviceData[0].data.bloodPressure"
           type="blood-pressure"
-          :change="healthData?.bloodPressure?.change || 0"
-          :time="healthData?.bloodPressure?.time || 'N/A'"
+          :time="formatDate(healthDeviceData[0].timestamp)"
           :loading="loading"
         />
         <HealthDataCard
           title="Temperature"
-          :value="healthData?.temperature?.value || 0"
+          :value="healthDeviceData[0].data.temperature"
           type="temperature"
-          :change="healthData?.temperature?.change || 0"
-          :time="healthData?.temperature?.time || 'N/A'"
+          :time="formatDate(healthDeviceData[0].timestamp)"
           :loading="loading"
         />
         <HealthDataCard
           title="Oxygen Saturation"
-          :value="healthData?.oxygen?.value || 0"
+          :value="healthDeviceData[0].data.oxygenSaturation"
           type="oxygen"
-          :change="healthData?.oxygen?.change || 0"
-          :time="healthData?.oxygen?.time || 'N/A'"
+          :time="formatDate(healthDeviceData[0].timestamp)"
+          :loading="loading"
+        />
+        <HealthDataCard
+          title="Steps"
+          :value="healthDeviceData[0].data.steps"
+          type="steps"
+          :time="formatDate(healthDeviceData[0].timestamp)"
           :loading="loading"
         />
       </div>
@@ -657,6 +787,120 @@ onMounted(async () => {
             icon="pi pi-check"
             class="p-button-success"
             @click="submitAppointment"
+          />
+        </div>
+      </form>
+    </Dialog>
+
+    <Dialog 
+      v-model:visible="displayHealthDeviceModal" 
+      header="Add Health Device Data" 
+      :modal="true" 
+      :style="{ width: '50vw' }"
+    >
+      <form class="health-device-form">
+        <div class="form-group">
+          <label for="deviceId">Device ID</label>
+          <InputText 
+            id="deviceId" 
+            v-model="healthDeviceForm.deviceId" 
+            placeholder="Enter device ID"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="deviceType">Device Type</label>
+          <Dropdown 
+            id="deviceType" 
+            v-model="healthDeviceForm.deviceType" 
+            :options="['smartwatch', 'fitness-tracker', 'blood-pressure-monitor', 'temperature-monitor']"
+            placeholder="Select device type"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="timestamp">Timestamp</label>
+          <Calendar 
+            id="timestamp" 
+            v-model="healthDeviceForm.timestamp" 
+            :showTime="true"
+            :showSeconds="true"
+            placeholder="Select date and time"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Health Data</label>
+          <div class="health-data-grid">
+            <div class="data-field">
+              <label>Heart Rate</label>
+              <InputText 
+                type="number" 
+                v-model="healthDeviceForm.data.heartRate" 
+                placeholder="Enter heart rate"
+              />
+            </div>
+            <div class="data-field">
+              <label>Blood Pressure</label>
+              <InputText 
+                v-model="healthDeviceForm.data.bloodPressure" 
+                placeholder="e.g., 120/80"
+              />
+            </div>
+            <div class="data-field">
+              <label>Oxygen Saturation</label>
+              <InputText 
+                type="number" 
+                v-model="healthDeviceForm.data.oxygenSaturation" 
+                placeholder="Enter oxygen saturation"
+              />
+            </div>
+            <div class="data-field">
+              <label>Temperature</label>
+              <InputText 
+                type="number" 
+                v-model="healthDeviceForm.data.temperature" 
+                placeholder="Enter temperature"
+              />
+            </div>
+            <div class="data-field">
+              <label>Steps</label>
+              <InputText 
+                type="number" 
+                v-model="healthDeviceForm.data.steps" 
+                placeholder="Enter steps count"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Abnormality</label>
+          <div class="abnormality-group">
+            <Checkbox 
+              v-model="healthDeviceForm.isAbnormal"
+              :binary="true"
+            />
+            <InputText 
+              v-model="healthDeviceForm.abnormalityReason"
+              placeholder="Enter abnormality reason"
+              :disabled="!healthDeviceForm.isAbnormal"
+            />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <Button 
+            label="Cancel" 
+            icon="pi pi-times" 
+            class="p-button-text"
+            @click="displayHealthDeviceModal = false"
+          />
+          <Button 
+            label="Submit" 
+            icon="pi pi-check" 
+            class="p-button-success"
+            @click.prevent="submitHealthDevice"
           />
         </div>
       </form>
@@ -1059,5 +1303,43 @@ onMounted(async () => {
 
 :deep(.p-button.p-button-text:hover) {
   background: rgba(155, 135, 245, 0.1);
+}
+
+.health-device-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.health-data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.data-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.abnormality-group {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 </style>

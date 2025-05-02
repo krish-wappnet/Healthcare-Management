@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Card from 'primevue/card';
@@ -102,6 +102,20 @@ const formatDate = (date: string) => {
   return dayjs(date).format('MMM D, YYYY');
 };
 
+// Check if profile is complete
+const isProfileComplete = computed(() => {
+  return !!(
+    profile.value?.dateOfBirth &&
+    profile.value?.gender &&
+    profile.value?.bloodType &&
+    profile.value?.phone &&
+    profile.value?.address &&
+    profile.value?.emergencyContactName &&
+    profile.value?.emergencyContactPhone &&
+    profile.value?.emergencyContactRelation
+  );
+});
+
 // Initial load
 onMounted(async () => {
   if (!(await authStore.checkAuth())) {
@@ -120,13 +134,28 @@ onMounted(async () => {
 
 <template>
   <div class="profile-container">
-    <Card class="profile-card">
+    <Card v-if="!loading">
       <template #header>
         <div class="profile-header">
-          <Avatar :image="'https://via.placeholder.com/100'" class="profile-avatar" size="xlarge" shape="circle" />
+          <Avatar
+            :image="'https://via.placeholder.com/100'"
+            :label="profile?.user?.firstName?.charAt(0) || 'P'"
+            size="xlarge"
+            shape="circle"
+          />
           <div class="profile-info">
             <h2>{{ profile?.user.firstName }} {{ profile?.user.lastName }}</h2>
-            <p class="role">Patient</p>
+            <p>{{ profile?.user.email }}</p>
+          </div>
+          <div v-if="!isProfileComplete" class="profile-incomplete">
+            <i class="pi pi-exclamation-triangle p-text-warning"></i>
+            <span class="p-text-warning">Profile Incomplete</span>
+            <Button
+              icon="pi pi-pencil"
+              class="p-button-rounded p-button-warning p-button-text"
+              @click="editProfile"
+              aria-label="Edit Profile"
+            />
           </div>
         </div>
       </template>
@@ -256,6 +285,11 @@ onMounted(async () => {
         </div>
       </template>
     </Card>
+
+    <div v-else class="loading-container">
+      <ProgressSpinner />
+      <p>Loading profile...</p>
+    </div>
   </div>
 </template>
 

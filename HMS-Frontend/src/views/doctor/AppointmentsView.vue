@@ -34,6 +34,7 @@ interface Appointment {
   symptoms?: string[];
   isPaid: boolean;
   paymentAmount: number;
+  meetingLink?: string;
 }
 
 interface User {
@@ -235,6 +236,34 @@ const showAppointmentDetails = (appointment: Appointment) => {
   }
 };
 
+// Generate meeting link
+const generateMeetingLink = async (appointmentId: string) => {
+  try {
+    const response = await apiClient.post(`/appointments/${appointmentId}/meeting`, {}, {
+      headers: { Authorization: `Bearer ${authStore.token}` }
+    });
+    
+    // Update the specific appointment in the list
+    const appointmentIndex = appointments.value.findIndex(a => a._id === appointmentId);
+    if (appointmentIndex !== -1) {
+      appointments.value[appointmentIndex] = response.data;
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Meeting link generated successfully',
+        life: 3000
+      });
+    }
+  } catch (err: any) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'Failed to generate meeting link',
+      life: 3000
+    });
+  }
+};
+
 // Initialize
 onMounted(async () => {
   if (!(await authStore.checkAuth()) || authStore.userRole !== 'doctor') {
@@ -348,6 +377,20 @@ onMounted(async () => {
                 icon="pi pi-eye"
                 text
                 @click="showAppointmentDetails(appointment)"
+              />
+              <Button
+                label="Generate Meeting"
+                icon="pi pi-video"
+                text
+                @click="generateMeetingLink(appointment._id)"
+                :disabled="appointment.meetingLink"
+              />
+              <Button
+                v-if="appointment.meetingLink"
+                label="Join Meeting"
+                icon="pi pi-external-link"
+                text
+                @click="window.open(appointment.meetingLink, '_blank')"
               />
             </div>
           </div>
@@ -718,8 +761,8 @@ onMounted(async () => {
 
 .appointment-actions {
   display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
   justify-content: flex-end;
 }
 

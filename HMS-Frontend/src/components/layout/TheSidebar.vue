@@ -32,7 +32,8 @@ const navItems = computed(() => {
         { icon: 'pi pi-home', label: 'Dashboard', route: '/doctor' },
         { icon: 'pi pi-users', label: 'Patients', route: '/doctor/patients' },
         { icon: 'pi pi-calendar', label: 'Appointments', route: '/doctor/appointments' },
-        { icon: 'pi pi-video', label: 'Consultations', route: '/doctor/consultations' }
+        { icon: 'pi pi-video', label: 'Consultations', route: '/doctor/consultations' },
+        { icon: 'pi pi-file', label: 'Medical Reports', route: '/doctor/medical-reports' }
       ]
     case 'patient':
       return [

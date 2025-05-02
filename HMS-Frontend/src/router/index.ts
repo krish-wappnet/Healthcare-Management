@@ -18,6 +18,7 @@ const DoctorProfile = () => import('../views/doctor/DoctorProfile.vue')
 const DoctorPatients = () => import('../views/doctor/PatientsView.vue')
 const DoctorAppointments = () => import('../views/doctor/AppointmentsView.vue')
 const DoctorConsultations = () => import('../views/doctor/ConsultationsView.vue')
+const DoctorMedicalReports = () => import('../views/doctor/MedicalReports.vue')
 const RoleSelection = () => import('../views/auth/RoleSelection.vue')
 const DoctorRegistration = () => import('../views/auth/DoctorRegistration.vue')
 
@@ -161,6 +162,13 @@ const router = createRouter({
       path: '/doctor/consultations',
       name: 'doctor-consultations',
       component: DoctorConsultations,
+      meta: { role: 'doctor' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/doctor/medical-reports',
+      name: 'doctor-medical-reports',
+      component: DoctorMedicalReports,
       meta: { role: 'doctor' },
       beforeEnter: authGuard
     },

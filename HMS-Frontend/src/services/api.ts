@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Create axios instance with default config
@@ -77,6 +76,25 @@ interface DashboardParams {
   sort?: string;
 }
 
+// Define interfaces for health device data
+interface DeviceData {
+  id: string;
+  patient: string;
+  deviceType: string;
+  data: any;
+  timestamp: string;
+  isAbnormal: boolean;
+  abnormalityReason?: string;
+  notificationSent?: boolean;
+}
+
+interface DeviceDataResponse {
+  data: DeviceData[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 // API service modules
 export const authService = {
   login: (email: string, password: string) => apiClient.post('/auth/login', { email, password }),
@@ -134,7 +152,24 @@ export const dashboardService = {
 };
 
 export const healthDataService = {
-  getPatientData: (patientId: string, type: string, period: string) =>
-    apiClient.get(`/health-data/${patientId}`, { params: { type, period } }),
-  getLatestReadings: (patientId: string) => apiClient.get(`/health-data/${patientId}/latest`),
+  // Get all device data for patient
+  getPatientData: (patientId: string, pagination: { page: number; limit: number }) => 
+    apiClient.get<DeviceDataResponse>(`/health-devices/patient/${patientId}`, { params: pagination }),
+
+  // Get device data by type for patient
+  getDeviceTypeData: (patientId: string, type: string, pagination: { page: number; limit: number }) => 
+    apiClient.get<DeviceDataResponse>(`/health-devices/patient/${patientId}/device/${type}`, { params: pagination }),
+
+  // Get abnormal readings for patient
+  getAbnormalReadings: (patientId: string, pagination: { page: number; limit: number }) => 
+    apiClient.get<DeviceDataResponse>(`/health-devices/patient/${patientId}/abnormal`, { params: pagination }),
+
+  // Get latest health data
+  getLatestHealthData: () => {
+    const patientId = localStorage.getItem('patientId');
+    if (!patientId) {
+      throw new Error('Patient ID not found');
+    }
+    return apiClient.get<DeviceDataResponse>(`/health-devices/patient/${patientId}`, { params: { page: 1, limit: 1 } });
+  },
 };

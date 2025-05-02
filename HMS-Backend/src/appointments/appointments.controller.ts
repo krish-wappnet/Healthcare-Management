@@ -40,7 +40,7 @@ export class AppointmentsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all appointments (paginated)' })
   @ApiResponse({ status: 200, description: 'Return all appointments' })
