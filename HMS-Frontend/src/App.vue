@@ -6,6 +6,7 @@ import TheHeader from './components/layout/TheHeader.vue'
 import TheSidebar from './components/layout/TheSidebar.vue'
 import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
+import ChatInterface from './components/chatbot/ChatInterface.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -53,7 +54,7 @@ const isAuthPage = computed(() => {
     </div>
     
     <!-- Auth pages (login/register) -->
-    <div v-else-if="isAuthPage" class="auth-container">
+    <div v-if="isAuthPage" class="auth-container">
       <router-view />
     </div>
     
@@ -73,12 +74,16 @@ const isAuthPage = computed(() => {
         </main>
       </div>
     </div>
+
+    <!-- Chat Interface - Moved outside dashboard to ensure visibility -->
+    <ChatInterface />
   </div>
 </template>
 
 <style lang="scss" scoped>
 .app-container {
   min-height: 100vh;
+  position: relative;
 }
 
 .auth-container {
@@ -87,11 +92,14 @@ const isAuthPage = computed(() => {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-container {
   display: flex;
   min-height: 100vh;
+  margin-left: 250px; // Push content to the right of sidebar
 }
 
 .dashboard-main {
@@ -116,7 +124,7 @@ const isAuthPage = computed(() => {
   right: 0;
   bottom: 0;
   background-color: rgba(255, 255, 255, 0.8);
-  z-index: 9999;
+  z-index: 9998; // Below chat (10000)
 }
 
 .loading-spinner {
@@ -130,5 +138,15 @@ const isAuthPage = computed(() => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

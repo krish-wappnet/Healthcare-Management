@@ -17,7 +17,7 @@
       <div v-if="loading" class="loading-spinner">Loading...</div>
 
       <!-- Medical Reports Table -->
-      <div class="table-container" v-if="!loading">
+      <div class="table-container" v-if="!loading && medicalReports.data">
         <div class="table-wrapper">
           <table class="reports-table">
             <thead>
@@ -27,11 +27,12 @@
                 <th>Date</th>
                 <th>Diagnosis</th>
                 <th>Status</th>
+                <th>Appointment Date</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="report in medicalReports" :key="report._id">
-                <td>{{ getPatientFullName(report.patient) }}</td>
+              <tr v-for="report in medicalReports.data" :key="report._id">
+                <td>{{ report.patient.user?.name || 'N/A' }}</td>
                 <td>{{ report.title }}</td>
                 <td>{{ formatDate(report.date) }}</td>
                 <td>{{ report.diagnosis }}</td>
@@ -40,9 +41,23 @@
                     {{ report.appointment.status }}
                   </span>
                 </td>
+                <td>{{ formatDate(report.appointment.date) }}</td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <!-- Pagination -->
+        <div class="pagination" v-if="medicalReports.total > medicalReports.limit">
+          <span class="page-info">
+            Showing {{ medicalReports.data.length }} of {{ medicalReports.total }} reports
+          </span>
+          <div class="page-controls">
+            <button @click="loadPage(1)" :disabled="medicalReports.page === 1">First</button>
+            <button @click="loadPage(medicalReports.page - 1)" :disabled="medicalReports.page === 1">Previous</button>
+            <span>Page {{ medicalReports.page }} of {{ Math.ceil(medicalReports.total / medicalReports.limit) }}</span>
+            <button @click="loadPage(medicalReports.page + 1)" :disabled="medicalReports.page === Math.ceil(medicalReports.total / medicalReports.limit)">Next</button>
+            <button @click="loadPage(Math.ceil(medicalReports.total / medicalReports.limit))" :disabled="medicalReports.page === Math.ceil(medicalReports.total / medicalReports.limit)">Last</button>
+          </div>
         </div>
       </div>
 
@@ -341,7 +356,12 @@ const loading = ref(false)
 const error = ref(null)
 const doctorId = ref(null)
 const appointments = ref([])
-const medicalReports = ref([])
+const medicalReports = ref({
+  data: [],
+  total: 0,
+  limit: 10,
+  page: 1
+})
 const reportForm = ref({
   appointment: '',
   title: '',
@@ -698,9 +718,13 @@ async function submitReport() {
 async function fetchMedicalReports() {
   try {
     loading.value = true
-    const response = await axios.get('http://localhost:3000/medical-reports', {
+    const response = await axios.get(`http://localhost:3000/medical-reports/doctor/${doctorId.value}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      params: {
+        page: 1,
+        limit: 10
       }
     })
     medicalReports.value = response.data
@@ -708,6 +732,27 @@ async function fetchMedicalReports() {
   } catch (error) {
     console.error('Error fetching medical reports:', error)
     error.value = error.response?.data?.message || 'Failed to fetch medical reports'
+    loading.value = false
+  }
+}
+
+async function loadPage(page: number) {
+  try {
+    loading.value = true
+    const response = await axios.get(`http://localhost:3000/medical-reports/doctor/${doctorId.value}`, {
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      params: {
+        page: page,
+        limit: 10
+      }
+    })
+    medicalReports.value = response.data
+    loading.value = false
+  } catch (error) {
+    console.error('Error loading page:', error)
+    error.value = error.response?.data?.message || 'Failed to load page'
     loading.value = false
   }
 }
@@ -1171,5 +1216,43 @@ async function fetchMedicalReports() {
 
 .symptoms-grid .form-group {
   margin-bottom: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.page-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.page-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.page-controls button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.page-controls button:hover {
+  background-color: #d1d5db;
+  transform: translateY(-2px);
+}
+
+.page-controls button:disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
 }
 </style>

@@ -39,7 +39,7 @@ const navItems = computed(() => {
       return [
         { icon: 'pi pi-home', label: 'Dashboard', route: '/patient' },
         { icon: 'pi pi-calendar', label: 'Appointments', route: '/patient/appointments' },
-        { icon: 'pi pi-video', label: 'Consultations', route: '/patient/consultations' },
+        { icon: 'pi pi-file', label: 'Medical Reports', route: '/patient/reports' },
         { icon: 'pi pi-heart', label: 'My Health', route: '/patient/health' },
         { icon: 'pi pi-comments', label: 'Symptom Checker', route: '/patient/chatbot' }
       ]
@@ -118,6 +118,9 @@ const handleLogout = async () => {
 
 <style lang="scss" scoped>
 .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   width: 250px;

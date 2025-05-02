@@ -26,6 +26,7 @@ const DoctorRegistration = () => import('../views/auth/DoctorRegistration.vue')
 const PatientDashboard = () => import('../views/patient/DashboardView.vue')
 const PatientProfile = () => import('../views/patient/PatientProfile.vue')
 const PatientAppointments = () => import('../views/patient/PatientAppointments.vue')
+const PatientReports = () => import('../views/patient/PatientReports.vue')
 const PatientRegistration = () => import('../views/auth/PatientRegistration.vue')
 // Uncomment and use when views are available
 // const PatientConsultations = () => import('../views/patient/ConsultationsView.vue')
@@ -192,6 +193,13 @@ const router = createRouter({
       path: '/patient/appointments',
       name: 'patient-appointments',
       component: PatientAppointments,
+      meta: { role: 'patient' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/patient/reports',
+      name: 'patient-reports',
+      component: PatientReports,
       meta: { role: 'patient' },
       beforeEnter: authGuard
     }
