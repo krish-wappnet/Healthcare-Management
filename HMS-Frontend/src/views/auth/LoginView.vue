@@ -314,7 +314,6 @@ const handleLoginError = (error: any) => {
 
 <style scoped>
 .login-container {
-  background: linear-gradient(135deg, #9b87f5 0%, #7E69AB 100%);
   display: flex;
   align-items: center;
   justify-content: center;

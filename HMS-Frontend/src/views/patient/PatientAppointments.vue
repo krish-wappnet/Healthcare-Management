@@ -174,7 +174,7 @@ const onStatusFilterChange = () => {
 
 // Navigate to book appointment
 const bookNewAppointment = () => {
-  router.push('/patient/dashboard'); // Assuming the dashboard has the booking modal
+  router.push('/patient'); // Assuming the dashboard has the booking modal
 };
 
 // Format date and time

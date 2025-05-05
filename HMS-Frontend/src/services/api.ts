@@ -127,8 +127,7 @@ export const appointmentService = {
   create: (appointmentData: AppointmentData) => apiClient.post('/appointments', appointmentData),
   update: (id: string, appointmentData: AppointmentData) => apiClient.put(`/appointments/${id}`, appointmentData),
   delete: (id: string) => apiClient.delete(`/appointments/${id}`),
-  getTimeSlots: (doctorId: string, date: string) =>
-    apiClient.get(`/appointments/timeslots`, { params: { doctorId, date } }),
+  getTimeSlots: (doctorId: string, date: string) => apiClient.get(`/appointments/${doctorId}/time-slots`, { params: { date } })
 };
 
 export const consultationService = {
@@ -172,4 +171,8 @@ export const healthDataService = {
     }
     return apiClient.get<DeviceDataResponse>(`/health-devices/patient/${patientId}`, { params: { page: 1, limit: 1 } });
   },
+
+  // Create new device data entry
+  createDeviceData: (deviceData: DeviceData) => 
+    apiClient.post<DeviceData>('/health-devices', deviceData),
 };

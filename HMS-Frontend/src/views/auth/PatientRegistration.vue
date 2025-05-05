@@ -933,7 +933,6 @@
   
   <style scoped>
   .patient-registration-container {
-    background: linear-gradient(135deg, #9b87f5 0%, #7e69ab 100%);
     display: flex;
     align-items: center;
     justify-content: center;

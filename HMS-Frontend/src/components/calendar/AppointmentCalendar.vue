@@ -49,13 +49,8 @@ const fetchAppointments = async () => {
     // Build params based on role
     const params: any = {
       startDate,
-      endDate
-    }
-    
-    if (userRole.value === 'doctor') {
-      params.doctorId = authStore.user?.id
-    } else if (userRole.value === 'patient') {
-      params.patientId = authStore.user?.id
+      endDate,
+      patientId: authStore.user?.id
     }
     
     const response = await appointmentService.getAll(params)

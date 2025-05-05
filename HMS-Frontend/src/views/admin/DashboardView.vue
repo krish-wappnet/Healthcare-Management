@@ -4,74 +4,65 @@
     <h1 class="dashboard-title">Admin Dashboard</h1>
     <div class="dashboard-content">
       <!-- Role Filter Tabs -->
-      <TabView v-model:activeIndex="activeTab" class="role-tabs">
-        <TabPanel header="All"></TabPanel>
-        <TabPanel header="Doctors"></TabPanel>
-        <TabPanel header="Patients"></TabPanel>
-      </TabView>
+      <div class="role-tabs">
+        <button
+          v-for="(tab, index) in ['All', 'Doctors', 'Patients']"
+          :key="tab"
+          :class="{ 'active-tab': activeTab === index }"
+          @click="activeTab = index"
+          class="tab-button"
+        >
+          {{ tab }}
+        </button>
+      </div>
 
       <!-- Users Table -->
       <div class="table-container">
-        <DataTable
-          :value="filteredUsers"
-          :loading="loading"
-          class="users-table"
-          responsiveLayout="scroll"
-          :rowHover="true"
-          :rows="limit"
-        >
-          <Column field="email" header="Email" sortable style="width: 20%;">
-            <template #body="{ data }">
-              <span>{{ data.email }}</span>
-            </template>
-          </Column>
-          <Column field="firstName" header="First Name" sortable style="width: 15%;">
-            <template #body="{ data }">
-              <span>{{ data.firstName }}</span>
-            </template>
-          </Column>
-          <Column field="lastName" header="Last Name" sortable style="width: 15%;">
-            <template #body="{ data }">
-              <span>{{ data.lastName }}</span>
-            </template>
-          </Column>
-          <Column field="role" header="Role" sortable style="width: 10%;">
-            <template #body="{ data }">
-              <span class="role-badge" :class="data.role">{{ data.role }}</span>
-            </template>
-          </Column>
-          <Column field="isActive" header="Active" sortable style="width: 10%;">
-            <template #body="{ data }">
-              <i :class="data.isActive ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
-            </template>
-          </Column>
-          <Column field="emailVerified" header="Email Verified" sortable style="width: 10%;">
-            <template #body="{ data }">
-              <i :class="data.emailVerified ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
-            </template>
-          </Column>
-          <Column field="createdAt" header="Created At" sortable style="width: 10%;">
-            <template #body="{ data }">
-              <span>{{ formatDate(data.createdAt) }}</span>
-            </template>
-          </Column>
-          <Column header="Actions" style="width: 10%;">
-            <template #body="{ data }">
-              <Button
-                icon="pi pi-pencil"
-                class="p-button-rounded p-button-text p-button-primary"
-                @click="openUpdateModal(data)"
-                aria-label="Edit user"
-              />
-              <Button
-                icon="pi pi-trash"
-                class="p-button-rounded p-button-text p-button-danger"
-                @click="confirmDelete(data._id)"
-                aria-label="Delete user"
-              />
-            </template>
-          </Column>
-        </DataTable>
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>First Name</th>
+              <th>Last Name</th>
+              <th>Role</th>
+              <th>Active</th>
+              <th>Email Verified</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="user in filteredUsers" :key="user._id">
+              <td>{{ user.email }}</td>
+              <td>{{ user.firstName }}</td>
+              <td>{{ user.lastName }}</td>
+              <td>
+                <span :class="['role-badge', user.role]">{{ user.role }}</span>
+              </td>
+              <td>
+                <i :class="user.isActive ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
+              </td>
+              <td>
+                <i :class="user.emailVerified ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
+              </td>
+              <td>{{ formatDate(user.createdAt) }}</td>
+              <td>
+                <Button
+                  icon="pi pi-pencil"
+                  class="p-button-rounded p-button-text p-button-primary"
+                  @click="openUpdateModal(user)"
+                  aria-label="Edit user"
+                />
+                <Button
+                  icon="pi pi-trash"
+                  class="p-button-rounded p-button-text p-button-danger"
+                  @click="confirmDelete(user._id)"
+                  aria-label="Delete user"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <!-- Pagination -->
         <div class="pagination" v-if="total > limit">
@@ -93,89 +84,103 @@
         </div>
       </div>
 
+      <!-- Modals Backdrop -->
+      <div v-if="showUpdateModal || showDeleteDialog" class="modal-backdrop"></div>
+
       <!-- Update User Modal -->
-      <Dialog
-        v-model:visible="showUpdateModal"
-        header="Update User"
-        :modal="true"
-        :style="{ width: '450px' }"
-        class="update-modal"
-      >
-        <div class="modal-content">
-          <div class="form-group">
-            <label for="firstName">First Name</label>
-            <InputText
-              id="firstName"
-              v-model="selectedUser.firstName"
-              class="p-inputtext w-full input-field"
-              placeholder="Enter first name"
-            />
+      <div class="modal-wrapper" v-if="showUpdateModal">
+        <div class="modal update-modal">
+          <div class="modal-header">
+            <h2>Update User</h2>
+            <button class="modal-close" @click="showUpdateModal = false">
+              <i class="pi pi-times"></i>
+            </button>
           </div>
-          <div class="form-group">
-            <label for="lastName">Last Name</label>
-            <InputText
-              id="lastName"
-              v-model="selectedUser.lastName"
-              class="p-inputtext w-full input-field"
-              placeholder="Enter last name"
-            />
+          <div class="modal-content">
+            <form @submit.prevent="updateUser">
+              <div class="form-group">
+                <label for="firstName">First Name</label>
+                <input
+                  type="text"
+                  id="firstName"
+                  v-model="selectedUser.firstName"
+                  class="input-field"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label for="lastName">Last Name</label>
+                <input
+                  type="text"
+                  id="lastName"
+                  v-model="selectedUser.lastName"
+                  class="input-field"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label for="role">Role</label>
+                <select
+                  id="role"
+                  v-model="selectedUser.role"
+                  class="input-field select-field"
+                  required
+                >
+                  <option value="doctor">Doctor</option>
+                  <option value="patient">Patient</option>
+                </select>
+              </div>
+              <div class="form-group switch-group">
+                <label for="isActive">Active</label>
+                <div class="custom-switch">
+                  <input
+                    id="isActive"
+                    v-model="selectedUser.isActive"
+                    type="checkbox"
+                  >
+                  <span class="slider"></span>
+                </div>
+              </div>
+            </form>
           </div>
-          <div class="form-group">
-            <label for="role">Role</label>
-            <Dropdown
-              id="role"
-              v-model="selectedUser.role"
-              :options="['doctor', 'patient']"
-              class="w-full input-field"
-              placeholder="Select role"
-            />
-          </div>
-          <div class="form-group switch-group">
-            <label for="isActive">Active</label>
-            <InputSwitch v-model="selectedUser.isActive" class="custom-switch" />
+          <div class="modal-footer">
+            <button class="button text-button" @click="showUpdateModal = false">
+              Cancel
+            </button>
+            <button class="button primary-button" @click="updateUser">
+              Save Changes
+            </button>
           </div>
         </div>
-        <template #footer>
-          <Button
-            label="Cancel"
-            class="p-button-text cancel-btn"
-            @click="showUpdateModal = false"
-          />
-          <Button
-            label="Save"
-            class="p-button-primary save-btn"
-            @click="updateUser"
-          />
-        </template>
-      </Dialog>
+      </div>
 
       <!-- Delete Confirmation Dialog -->
-      <Dialog
-        v-model:visible="showDeleteDialog"
-        header="Confirm Deletion"
-        :modal="true"
-        :style="{ width: '400px' }"
-        class="delete-dialog"
-      >
-        <div class="confirmation-content">
-          <i class="pi pi-exclamation-triangle warning-icon" />
-          <span class="confirmation-text">
-            Are you sure you want to delete this user? This action cannot be undone.
-          </span>
+      <div class="modal-wrapper" v-if="showDeleteDialog">
+        <div class="modal delete-dialog">
+          <div class="modal-header">
+            <h2>Delete User</h2>
+            <button class="modal-close" @click="showDeleteDialog = false">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="modal-content">
+            <div class="confirmation-content">
+              <i class="pi pi-exclamation-triangle warning-icon"></i>
+              <span class="confirmation-text">
+                Are you sure you want to delete this user? This action cannot be undone.
+              </span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="button text-button" @click="showDeleteDialog = false">
+              Cancel
+            </button>
+            <button class="button danger-button" @click="deleteUser">
+              Delete User
+            </button>
+          </div>
         </div>
-        <template #footer>
-          <Button
-            label="Cancel"
-            class="p-button-text cancel-btn"
-            @click="showDeleteDialog = false"
-          />
-          <Button
-            label="Delete"
-            class="p-button-danger delete-btn"
-            @click="deleteUser"
-          />
-        </template>
-      </Dialog>
+      </div>
     </div>
   </div>
 </template>
@@ -269,23 +274,41 @@ const formatDate = (date: string) => {
 
 // Open update modal
 const openUpdateModal = (user: any) => {
-  selectedUser.value = { ...user }
+  selectedUser.value = {
+    ...user,
+    id: user._id // Ensure we use _id as the ID property
+  }
   showUpdateModal.value = true
 }
 
 // Update user
 const updateUser = async () => {
   try {
-    if (!authStore.token) {
-      throw new Error('No auth token found')
+    if (!authStore.token || !selectedUser.value._id) {
+      throw new Error('No auth token or user ID found')
     }
 
-    await apiClient.patch(`/users/${selectedUser.value.id}`, selectedUser.value, {
+    // Create a clean object with only the fields we want to update
+    const updateData = {
+      firstName: selectedUser.value.firstName,
+      lastName: selectedUser.value.lastName,
+      email: selectedUser.value.email,
+      role: selectedUser.value.role,
+      isActive: selectedUser.value.isActive,
+      emailVerified: selectedUser.value.emailVerified
+    }
+
+    console.log('Updating user with ID:', selectedUser.value._id);
+    console.log('Update data:', updateData);
+
+    const response = await apiClient.patch(`/users/${selectedUser.value._id}`, updateData, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authStore.token}`,
       },
     })
+
+    console.log('Update response:', response);
 
     toast.add({
       severity: 'success',
@@ -297,11 +320,15 @@ const updateUser = async () => {
     showUpdateModal.value = false
     fetchUsers(currentPage.value)
   } catch (error) {
-    console.error('Error updating user:', error)
+    console.error('Full error details:', error);
+    console.error('Error message:', error.message);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
+    
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'Failed to update user. Please try again.',
+      detail: error.response?.data?.message || 'Failed to update user. Please try again.',
       life: 3000,
     })
   }
@@ -364,25 +391,23 @@ onMounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 :root {
   --primary: #3b82f6;
   --primary-dark: #1e40af;
   --primary-light: #93c5fd;
-  --neutral-50: #f9fafb;
-  --neutral-100: #f3f4f6;
-  --neutral-200: #e5e7eb;
-  --neutral-700: #374151;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
   --success: #22c55e;
   --danger: #ef4444;
   --warning: #f59e0b;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --background: #f9fafb;
+  --border-color: #e5e7eb;
 }
 
 .admin-dashboard {
   padding: 2rem;
-  background: var(--neutral-50);
+  background: var(--background);
   min-height: 100vh;
 
   .dashboard-title {
@@ -400,40 +425,31 @@ onMounted(() => {
 
     .role-tabs {
       margin-bottom: 2rem;
-      border-radius: 8px;
-      background: white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
 
-      :deep(.p-tabview-nav) {
-        background: transparent;
-        border: none;
-        display: flex;
-        justify-content: center;
-      }
-
-      :deep(.p-tabview-nav-link) {
-        padding: 1rem 2rem;
-        font-size: 1rem;
+      .tab-button {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid var(--border-color);
         font-weight: 600;
         color: var(--text-secondary);
+        cursor: pointer;
         transition: all 0.2s ease;
-        border-radius: 8px;
-        margin: 0 0.5rem;
 
-        &.p-highlight {
+        &.active-tab {
           background: var(--primary);
           color: white;
+          border-color: var(--primary);
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        &:hover {
+        &:hover:not(.active-tab) {
           background: var(--primary-light);
           color: var(--primary-dark);
         }
-      }
-
-      :deep(.p-tabview-panels) {
-        display: none;
       }
     }
 
@@ -442,36 +458,27 @@ onMounted(() => {
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       padding: 2rem;
-      overflow-x: auto;
 
-      .users-table {
-        :deep(.p-datatable-table) {
-          font-size: 1rem;
-          color: var(--text-primary);
-        }
+      table {
+        width: 100%;
+        border-collapse: collapse;
 
-        :deep(.p-datatable-header) {
-          background: var(--neutral-50);
-          border-bottom: 1px solid var(--border-color);
-          padding: 1.5rem;
-          font-weight: 600;
-          color: var(--neutral-700);
+        th {
+          padding: 1rem;
           text-align: left;
+          font-weight: 600;
+          color: var(--text-primary);
+          background: var(--background);
+          border-bottom: 1px solid var(--border-color);
         }
 
-        :deep(.p-datatable-tbody) {
-          tr {
-            transition: background 0.2s ease;
+        td {
+          padding: 1rem;
+          border-bottom: 1px solid var(--border-color);
+          vertical-align: middle;
 
-            &:hover {
-              background: var(--neutral-100);
-            }
-          }
-
-          td {
-            padding: 1.25rem;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: middle;
+          &:last-child {
+            text-align: right;
           }
         }
 
@@ -480,8 +487,8 @@ onMounted(() => {
           border-radius: 16px;
           font-size: 0.875rem;
           font-weight: 500;
-          text-transform: capitalize;
           display: inline-block;
+          text-transform: capitalize;
 
           &.doctor {
             background: var(--primary-light);
@@ -501,6 +508,41 @@ onMounted(() => {
         .inactive {
           color: var(--danger);
         }
+
+        .button {
+          margin-left: 0.5rem;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          border: none;
+          cursor: pointer;
+          font-size: 0.875rem;
+          transition: all 0.2s ease;
+
+          &.primary-button {
+            background: var(--primary);
+            color: white;
+
+            &:hover {
+              background: var(--primary-dark);
+            }
+          }
+
+          &.danger-button {
+            background: var(--danger);
+            color: var(--text-primary);
+            border: 1px solid var(--danger);
+
+            &:hover {
+              background: #be123c;
+              color: white;
+            }
+
+            &:active {
+              background: #9f1239;
+              color: white;
+            }
+          }
+        }
       }
 
       .pagination {
@@ -516,517 +558,372 @@ onMounted(() => {
           font-weight: 500;
         }
 
-        .p-button {
-          color: var(--primary);
-          font-size: 1.25rem;
+        .button {
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
           transition: all 0.2s ease;
 
           &:hover {
-            background: var(--neutral-100);
+            background: var(--primary-light);
             color: var(--primary-dark);
           }
 
           &:disabled {
-            color: var(--neutral-200);
+            opacity: 0.5;
             cursor: not-allowed;
           }
         }
       }
     }
 
-    /* Enhanced Update Modal Styling */
-    :deep(.update-modal) {
-      .p-dialog {
-        border-radius: 16px !important;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
-        background: white !important;
-        animation: modalFadeIn 0.3s ease-out !important;
-        transform: translateY(0) !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-        
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+
+    .modal-wrapper {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+      width: 100%;
+      max-width: 450px;
+      animation: modalFadeIn 0.3s ease-out;
+    }
+
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      transition: color 0.2s ease;
+
+      &:hover {
+        color: var(--text-primary);
+      }
+    }
+
+    .modal-content {
+      padding: 2rem;
+    }
+
+    .modal-footer {
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+
+      label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .input-field {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: var(--background);
+        color: var(--text-primary);
+
+        &:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        &::placeholder {
+          color: var(--text-secondary);
+        }
+      }
+
+      .select-field {
+        padding-right: 2rem;
+        cursor: pointer;
+        appearance: none;
+        background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 1rem center;
+        background-size: 12px;
+
+        &:focus {
+          background-color: var(--background);
+        }
+      }
+    }
+
+    .button {
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      min-width: 100px;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      &.text-button {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+
         &:hover {
-          transform: translateY(-4px) !important;
-          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2) !important;
+          background: var(--background);
+          color: var(--text-primary);
         }
 
-        .p-dialog-header {
-          background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
-          color: white !important;
-          padding: 1.5rem 2rem !important;
-          font-size: 1.25rem !important;
-          font-weight: 700 !important;
-          border-top-left-radius: 16px !important;
-          border-top-right-radius: 16px !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 0.75rem !important;
-          border-bottom: none !important;
-
-          .p-dialog-title {
-            flex-grow: 1 !important;
-          }
-
-          .p-dialog-header-icon {
-            color: white !important;
-            font-size: 1.25rem !important;
-            background: rgba(255, 255, 255, 0.15) !important;
-            border-radius: 50% !important;
-            width: 32px !important;
-            height: 32px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: background 0.2s ease !important;
-            border: none !important;
-
-            &:hover {
-              background: rgba(255, 255, 255, 0.25) !important;
-            }
-          }
-        }
-
-        .p-dialog-content {
-          padding: 2rem !important;
-          background: white !important;
-
-          .modal-content {
-            .form-group {
-              margin-bottom: 1.5rem !important;
-
-              label {
-                display: block !important;
-                font-size: 0.9rem !important;
-                font-weight: 600 !important;
-                color: var(--text-primary) !important;
-                margin-bottom: 0.5rem !important;
-                transition: color 0.2s ease !important;
-              }
-
-              .input-field {
-                border: 1px solid var(--neutral-200) !important;
-                border-radius: 8px !important;
-                padding: 0.75rem 1rem !important;
-                font-size: 0.95rem !important;
-                transition: all 0.2s ease !important;
-                width: 100% !important;
-                box-sizing: border-box !important;
-                background: var(--neutral-50) !important;
-                border: none !important;
-
-                &:focus {
-                  border-color: var(--primary) !important;
-                  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
-                  background: white !important;
-                }
-
-                &:hover {
-                  border-color: var(--primary-light) !important;
-                }
-
-                /* Dropdown specific */
-                &.p-dropdown {
-                  background: var(--neutral-50) !important;
-                  border: 1px solid var(--neutral-200) !important;
-
-                  &:hover {
-                    border-color: var(--primary-light) !important;
-                  }
-
-                  &.p-focus {
-                    border-color: var(--primary) !important;
-                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
-                  }
-
-                  .p-dropdown-label {
-                    font-size: 0.95rem !important;
-                    color: var(--text-primary) !important;
-                  }
-
-                  .p-dropdown-trigger {
-                    color: var(--text-secondary) !important;
-                  }
-                }
-              }
-            }
-
-            .switch-group {
-              display: flex !important;
-              align-items: center !important;
-              justify-content: space-between !important;
-              margin-bottom: 1.5rem !important;
-
-              label {
-                font-size: 0.9rem !important;
-                font-weight: 600 !important;
-                color: var(--text-primary) !important;
-              }
-
-              .custom-switch {
-                :deep(.p-inputswitch) {
-                  width: 48px !important;
-                  height: 24px !important;
-                  border: none !important;
-
-                  .p-inputswitch-slider {
-                    background: var(--neutral-200) !important;
-                    border-radius: 12px !important;
-                    transition: all 0.3s ease !important;
-                    border: none !important;
-
-                    &:before {
-                      width: 20px !important;
-                      height: 20px !important;
-                      margin-top: 2px !important;
-                      margin-left: 2px !important;
-                      background: white !important;
-                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-                      transition: transform 0.3s ease !important;
-                      border: none !important;
-                    }
-                  }
-
-                  &.p-inputswitch-checked {
-                    .p-inputswitch-slider {
-                      background: var(--primary) !important;
-
-                      &:before {
-                        transform: translateX(24px) !important;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        .p-dialog-footer {
-          padding: 1.5rem 2rem !important;
-          background: white !important;
-          border-top: 1px solid var(--neutral-200) !important;
-          border-bottom-left-radius: 16px !important;
-          border-bottom-right-radius: 16px !important;
-          display: flex !important;
-          justify-content: flex-end !important;
-          gap: 1rem !important;
-          border-bottom: none !important;
-        }
-
-        .cancel-btn,
-        .save-btn {
-          padding: 0.75rem 1.5rem !important;
-          border-radius: 8px !important;
-          font-size: 0.95rem !important;
-          font-weight: 600 !important;
-          transition: all 0.2s ease !important;
-          min-width: 100px !important;
-          border: none !important;
-
-          &:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-          }
-
-          &:active {
-            transform: translateY(0) !important;
-          }
-        }
-
-        .cancel-btn {
-          color: var(--text-secondary) !important;
-          background: transparent !important;
-          border: 1px solid var(--neutral-200) !important;
-
-          &:hover {
-            background: var(--neutral-100) !important;
-            color: var(--text-primary) !important;
-          }
-        }
-
-        .save-btn {
-          background: var(--primary) !important;
-          color: white !important;
-
-          &:hover {
-            background: var(--primary-dark) !important;
-          }
+        &:active {
+          transform: scale(0.98);
         }
       }
-    }
 
-    /* Enhanced Delete Confirmation Dialog Styling */
-    :deep(.delete-dialog) {
-      .p-dialog {
-        border-radius: 16px !important;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
-        background: white !important;
-        animation: modalFadeIn 0.3s ease-out !important;
-        transform: translateY(0) !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-        
+      &.primary-button {
+        background: var(--primary);
+        color: white;
+
         &:hover {
-          transform: translateY(-4px) !important;
-          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2) !important;
+          background: var(--primary-dark);
         }
 
-        .p-dialog-header {
-          background: linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%) !important;
-          color: white !important;
-          padding: 1.5rem 2rem !important;
-          font-size: 1.25rem !important;
-          font-weight: 700 !important;
-          border-top-left-radius: 16px !important;
-          border-top-right-radius: 16px !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 0.75rem !important;
-          border-bottom: none !important;
+        &:active {
+          background: var(--primary-darker);
+        }
+      }
 
-          .p-dialog-title {
-            flex-grow: 1 !important;
-          }
+      &.danger-button {
+        background: var(--danger);
+        color: var(--text-primary);
+        border: 1px solid var(--danger);
 
-          .p-dialog-header-icon {
-            color: white !important;
-            font-size: 1.25rem !important;
-            background: rgba(255, 255, 255, 0.15) !important;
-            border-radius: 50% !important;
-            width: 32px !important;
-            height: 32px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: background 0.2s ease !important;
-            border: none !important;
-
-            &:hover {
-              background: rgba(255, 255, 255, 0.25) !important;
-            }
-          }
+        &:hover {
+          background: #be123c;
+          color: white;
         }
 
-        .p-dialog-content {
-          padding: 2rem !important;
-          background: white !important;
-
-          .confirmation-content {
-            display: flex !important;
-            align-items: center !important;
-            gap: 1.5rem !important;
-            color: var(--text-primary) !important;
-
-            .warning-icon {
-              font-size: 2rem !important;
-              color: var(--danger) !important;
-              animation: pulse 1.5s infinite !important;
-            }
-
-            .confirmation-text {
-              font-size: 1rem !important;
-              line-height: 1.5 !important;
-              color: var(--text-primary) !important;
-              font-weight: 500 !important;
-            }
-          }
-        }
-
-        .p-dialog-footer {
-          padding: 1.5rem 2rem !important;
-          background: white !important;
-          border-top: 1px solid var(--neutral-200) !important;
-          border-bottom-left-radius: 16px !important;
-          border-bottom-right-radius: 16px !important;
-          display: flex !important;
-          justify-content: flex-end !important;
-          gap: 1rem !important;
-          border-bottom: none !important;
-        }
-
-        .cancel-btn,
-        .delete-btn {
-          padding: 0.75rem 1.5rem !important;
-          border-radius: 8px !important;
-          font-size: 0.95rem !important;
-          font-weight: 600 !important;
-          transition: all 0.2s ease !important;
-          min-width: 100px !important;
-          border: none !important;
-
-          &:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-          }
-
-          &:active {
-            transform: translateY(0) !important;
-          }
-        }
-
-        .cancel-btn {
-          color: var(--text-secondary) !important;
-          background: transparent !important;
-          border: 1px solid var(--neutral-200) !important;
-
-          &:hover {
-            background: var(--neutral-100) !important;
-            color: var(--text-primary) !important;
-          }
-        }
-
-        .delete-btn {
-          background: var(--danger) !important;
-          color: white !important;
-
-          &:hover {
-            background: #b91c1c !important;
-          }
+        &:active {
+          background: #9f1239;
+          color: white;
         }
       }
     }
-  }
 
-  /* Animation for modal fade-in */
-  @keyframes modalFadeIn {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
+    .switch-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
 
-  /* Animation for pulse effect */
-  @keyframes pulse {
-    0% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(1.1);
-      opacity: 0.85;
-    }
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
+      .custom-switch {
+        position: relative;
+        width: 48px;
+        height: 24px;
 
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .admin-dashboard {
-      padding: 1rem;
+        input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
 
-      .dashboard-title {
-        font-size: 1.75rem;
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: var(--border-color);
+          transition: all 0.2s ease;
+          border-radius: 34px;
+          border: 1px solid var(--border-color);
+
+          &:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: all 0.2s ease;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+        }
+
+        input:checked + .slider {
+          background-color: var(--success);
+          border-color: var(--success);
+
+          &:before {
+            transform: translateX(24px);
+          }
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+      }
+    }
+
+    /* Delete dialog specific styles */
+    .delete-dialog {
+      max-width: 400px;
+
+      .modal-header h2 {
+        color: var(--danger);
       }
 
-      .dashboard-content {
-        .role-tabs {
-          :deep(.p-tabview-nav-link) {
-            padding: 0.75rem 1rem;
-            font-size: 0.9rem;
-            margin: 0 0.25rem;
-          }
+      .confirmation-content {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        color: var(--text-primary);
+
+        .warning-icon {
+          font-size: 2rem;
+          color: var(--danger);
+          animation: pulse 1.5s infinite;
         }
 
-        .table-container {
-          padding: 1rem;
-
-          .users-table {
-            :deep(.p-datatable-tbody) {
-              tr {
-                td {
-                  padding: 0.75rem;
-                  font-size: 0.9rem;
-                }
-              }
-            }
-          }
+        .confirmation-text {
+          font-size: 1rem;
+          line-height: 1.5;
+          font-weight: 500;
         }
+      }
+    }
 
-        .update-modal,
-        .delete-dialog {
-          :deep(.p-dialog) {
-            width: 90% !important;
-            max-width: 400px;
-          }
+    /* Modal animations */
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-          .p-dialog-header {
-            padding: 1.25rem 1.5rem;
-            font-size: 1.1rem;
-          }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.85;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
 
-          .p-dialog-content {
-            padding: 1.5rem;
-          }
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .modal {
+        margin: 1rem;
+        width: calc(100% - 2rem);
+      }
 
-          .p-dialog-footer {
-            padding: 1.25rem 1.5rem;
-          }
+      .modal-header {
+        padding: 1rem;
+      }
 
-          .cancel-btn,
-          .save-btn,
-          .delete-btn {
-            padding: 0.65rem 1.25rem;
+      .modal-content {
+        padding: 1rem;
+      }
+
+      .modal-footer {
+        padding: 0.75rem;
+      }
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .admin-dashboard {
+    padding: 1rem;
+
+    .dashboard-title {
+      font-size: 1.75rem;
+    }
+
+    .dashboard-content {
+      .role-tabs {
+        flex-wrap: wrap;
+
+        .tab-button {
+          padding: 0.5rem 1rem;
+          font-size: 0.9rem;
+        }
+      }
+
+      .table-container {
+        padding: 1rem;
+
+        table {
+          th {
+            padding: 0.75rem;
             font-size: 0.9rem;
-            min-width: 90px;
           }
 
-          .modal-content {
-            .form-group {
-              margin-bottom: 1.25rem;
-
-              label {
-                font-size: 0.85rem;
-              }
-
-              .input-field {
-                padding: 0.65rem 0.9rem;
-                font-size: 0.9rem;
-              }
-            }
-
-            .switch-group {
-              margin-bottom: 1.25rem;
-
-              .custom-switch {
-                :deep(.p-inputswitch) {
-                  width: 44px;
-                  height: 22px;
-
-                  .p-inputswitch-slider {
-                    &:before {
-                      width: 18px;
-                      height: 18px;
-                      margin-top: 2px;
-                      margin-left: 2px;
-                    }
-                  }
-
-                  &.p-inputswitch-checked {
-                    .p-inputswitch-slider {
-                      &:before {
-                        transform: translateX(22px);
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          .confirmation-content {
-            gap: 1rem;
-
-            .warning-icon {
-              font-size: 1.75rem;
-            }
-
-            .confirmation-text {
-              font-size: 0.95rem;
-            }
+          td {
+            padding: 0.75rem;
+            font-size: 0.9rem;
           }
         }
       }

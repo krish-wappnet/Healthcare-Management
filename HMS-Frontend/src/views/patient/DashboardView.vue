@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useAuthStore } from '../../stores/auth';
@@ -52,7 +52,7 @@ const authStore = useAuthStore();
 const loading = ref(true);
 const error = ref<string | null>(null);
 const patientId = ref<string | null>(null);
-const appointments = ref<Appointment[]>([]);
+const appointments = ref<any[]>([]); // Initialize appointments as empty array
 const healthData = ref<HealthData | null>(null);
 const upcomingAppointment = ref<Appointment | null>(null);
 const stats = ref<PatientStats>({
@@ -104,6 +104,204 @@ const selectedDoctorFee = computed(() => {
   return doctor ? doctor.doctor.consultationFee : null;
 });
 
+// Device types enum
+const DeviceType = {
+  SMARTWATCH: 'smartwatch',
+  BLOOD_PRESSURE: 'blood_pressure',
+  GLUCOSE_MONITOR: 'glucose_monitor',
+  PULSE_OXIMETER: 'pulse_oximeter',
+  THERMOMETER: 'thermometer',
+  WEIGHT_SCALE: 'weight_scale'
+} as const;
+
+type DeviceType = typeof DeviceType[keyof typeof DeviceType];
+
+const deviceTypeOptions = computed(() => {
+  return Object.entries(DeviceType).map(([key, value]) => ({
+    label: key.replace('_', ' '),
+    value: value
+  }));
+});
+
+const deviceFields = computed(() => {
+  switch (healthDeviceForm.value.deviceType) {
+    case DeviceType.SMARTWATCH:
+      return [
+        { label: 'Heart Rate', field: 'heartRate', unit: 'bpm' },
+        { label: 'Blood Pressure', field: 'bloodPressure', unit: 'mmHg' },
+        { label: 'Oxygen Saturation', field: 'oxygenSaturation', unit: '%' },
+        { label: 'Temperature', field: 'temperature', unit: '°F' },
+        { label: 'Steps', field: 'steps', unit: '' }
+      ];
+    case DeviceType.BLOOD_PRESSURE:
+      return [
+        { label: 'Blood Pressure', field: 'bloodPressure', unit: 'mmHg' },
+        { label: 'Pulse Rate', field: 'pulseRate', unit: 'bpm' }
+      ];
+    case DeviceType.GLUCOSE_MONITOR:
+      return [
+        { label: 'Glucose Level', field: 'glucoseLevel', unit: 'mg/dL' },
+        { label: 'Is Fasting', field: 'isFasting', type: 'boolean' }
+      ];
+    case DeviceType.PULSE_OXIMETER:
+      return [
+        { label: 'Oxygen Saturation', field: 'oxygenSaturation', unit: '%' },
+        { label: 'Pulse Rate', field: 'pulseRate', unit: 'bpm' }
+      ];
+    case DeviceType.THERMOMETER:
+      return [
+        { label: 'Temperature', field: 'temperature', unit: '°F' },
+        { label: 'Location', field: 'measurementLocation', type: 'text' }
+      ];
+    case DeviceType.WEIGHT_SCALE:
+      return [
+        { label: 'Weight', field: 'weight', unit: 'lbs' },
+        { label: 'BMI', field: 'bmi', unit: '' },
+        { label: 'Body Fat', field: 'bodyFatPercentage', unit: '%' }
+      ];
+    default:
+      return [];
+  }
+});
+
+const deviceStats = computed(() => {
+  const latestHealthData = healthData.value;
+  if (!latestHealthData) return [];
+
+  switch (healthDeviceForm.value.deviceType) {
+    case DeviceType.SMARTWATCH:
+      return [
+        {
+          label: 'Heart Rate',
+          value: latestHealthData.heartRate?.value,
+          unit: 'bpm',
+          change: latestHealthData.heartRate?.change,
+          color: latestHealthData.heartRate?.value > 100 || latestHealthData.heartRate?.value < 50 ? 'red' : 'green'
+        },
+        {
+          label: 'Blood Pressure',
+          value: latestHealthData.bloodPressure?.value,
+          unit: 'mmHg',
+          change: latestHealthData.bloodPressure?.change,
+          color: latestHealthData.bloodPressure?.value ? (
+            parseInt(latestHealthData.bloodPressure.value.split('/')[0]) > 140 || 
+            parseInt(latestHealthData.bloodPressure.value.split('/')[1]) > 90 ? 'red' : 'green'
+          ) : 'green'
+        },
+        {
+          label: 'Oxygen Saturation',
+          value: latestHealthData.oxygen?.value,
+          unit: '%',
+          change: latestHealthData.oxygen?.change,
+          color: latestHealthData.oxygen?.value < 90 ? 'red' : 'green'
+        },
+        {
+          label: 'Temperature',
+          value: latestHealthData.temperature?.value,
+          unit: '°F',
+          change: latestHealthData.temperature?.change,
+          color: latestHealthData.temperature?.value > 100.4 ? 'red' : 'green'
+        },
+        {
+          label: 'Steps',
+          value: latestHealthData.steps?.value,
+          unit: '',
+          change: latestHealthData.steps?.change,
+          color: 'green'
+        }
+      ];
+
+    case DeviceType.BLOOD_PRESSURE:
+      return [
+        {
+          label: 'Blood Pressure',
+          value: latestHealthData.bloodPressure?.value,
+          unit: 'mmHg',
+          change: latestHealthData.bloodPressure?.change,
+          color: latestHealthData.bloodPressure?.value ? (
+            parseInt(latestHealthData.bloodPressure.value.split('/')[0]) > 140 || 
+            parseInt(latestHealthData.bloodPressure.value.split('/')[1]) > 90 ? 'red' : 'green'
+          ) : 'green'
+        },
+        {
+          label: 'Pulse Rate',
+          value: latestHealthData.pulseRate?.value,
+          unit: 'bpm',
+          change: latestHealthData.pulseRate?.change,
+          color: latestHealthData.pulseRate?.value > 100 ? 'red' : 'green'
+        }
+      ];
+
+    case DeviceType.GLUCOSE_MONITOR:
+      return [
+        {
+          label: 'Glucose Level',
+          value: latestHealthData.glucoseLevel?.value,
+          unit: 'mg/dL',
+          change: latestHealthData.glucoseLevel?.change,
+          color: latestHealthData.glucoseLevel?.value > 180 || latestHealthData.glucoseLevel?.value < 70 ? 'red' : 'green'
+        }
+      ];
+
+    case DeviceType.PULSE_OXIMETER:
+      return [
+        {
+          label: 'Oxygen Saturation',
+          value: latestHealthData.oxygenSaturation?.value,
+          unit: '%',
+          change: latestHealthData.oxygenSaturation?.change,
+          color: latestHealthData.oxygenSaturation?.value < 90 ? 'red' : 'green'
+        },
+        {
+          label: 'Pulse Rate',
+          value: latestHealthData.pulseRate?.value,
+          unit: 'bpm',
+          change: latestHealthData.pulseRate?.change,
+          color: latestHealthData.pulseRate?.value > 100 ? 'red' : 'green'
+        }
+      ];
+
+    case DeviceType.THERMOMETER:
+      return [
+        {
+          label: 'Temperature',
+          value: latestHealthData.temperature?.value,
+          unit: '°F',
+          change: latestHealthData.temperature?.change,
+          color: latestHealthData.temperature?.value > 100.4 ? 'red' : 'green'
+        }
+      ];
+
+    case DeviceType.WEIGHT_SCALE:
+      return [
+        {
+          label: 'Weight',
+          value: latestHealthData.weight?.value,
+          unit: 'lbs',
+          change: latestHealthData.weight?.change,
+          color: 'green'
+        },
+        {
+          label: 'BMI',
+          value: latestHealthData.bmi?.value,
+          unit: '',
+          change: latestHealthData.bmi?.change,
+          color: latestHealthData.bmi?.value > 30 ? 'red' : 'green'
+        },
+        {
+          label: 'Body Fat',
+          value: latestHealthData.bodyFatPercentage?.value,
+          unit: '%',
+          change: latestHealthData.bodyFatPercentage?.change,
+          color: latestHealthData.bodyFatPercentage?.value > 35 ? 'red' : 'green'
+        }
+      ];
+
+    default:
+      return [];
+  }
+});
+
 // Methods
 const bookNewAppointment = () => {
   displayAppointmentModal.value = true;
@@ -117,22 +315,20 @@ const handleAppointmentSelected = (appointment: Appointment) => {
 const fetchDashboardData = async () => {
   try {
     // Fetch patient data
-    const [health, appointmentsData] = await Promise.all([
-      healthDataService.getLatestHealthData(),
-      appointmentService.getUpcomingAppointments()
-    ]);
-
-    healthData.value = health;
-    upcomingAppointment.value = appointmentsData[0] || null;
+    const health = await healthDataService.getLatestHealthData();
     
-    // Update stats
+    healthData.value = health;
+    
+    // Update stats based on current appointments
     stats.value = {
-      totalAppointments: appointmentsData.length,
-      completedConsultations: await appointmentService.getCompletedConsultationsCount(),
-      upcomingAppointments: appointmentsData.filter(app => new Date(app.date) >= new Date()).length,
-      lastCheckup: await appointmentService.getLastCheckupDate()
+      totalAppointments: appointments.value.length,
+      completedConsultations: appointments.value.filter(app => app.status === 'completed').length,
+      upcomingAppointments: appointments.value.filter(app => new Date(app.date) >= new Date()).length,
+      lastCheckup: appointments.value.length > 0 ? 
+        appointments.value.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date : null
     };
   } catch (error) {
+    console.error('Error fetching dashboard data:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
@@ -172,6 +368,37 @@ const fetchDoctors = async () => {
   }
 };
 
+const initializePatient = async () => {
+  try {
+    // First check if we have a patient ID in auth store
+    if (authStore.user?.id) {
+      patientId.value = authStore.user.id;
+      return;
+    }
+
+    // If not in auth store, fetch from profile endpoint
+    await fetchPatientId();
+    
+    if (!patientId.value) {
+      throw new Error('Failed to initialize patient ID');
+    }
+
+    // Update auth store with patient ID
+    if (authStore.user) {
+      authStore.user.id = patientId.value;
+    }
+  } catch (error) {
+    console.error('Error initializing patient:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to initialize patient data. Please try logging in again.',
+      life: 3000
+    });
+    throw error;
+  }
+};
+
 const fetchPatientId = async () => {
   try {
     const response = await apiClient.get('/patients/profile');
@@ -188,6 +415,28 @@ const fetchPatientId = async () => {
       severity: 'error',
       summary: 'Error',
       detail: error.response?.data?.message || 'Failed to fetch patient ID',
+      life: 3000
+    });
+  }
+};
+
+const fetchHealthDeviceData = async () => {
+  try {
+    if (!patientId.value) {
+      throw new Error('Patient ID not found');
+    }
+
+    const response = await apiClient.get(`/health-devices/patient/${patientId.value}?page=1&limit=10`);
+    healthDeviceData.value = response.data.data || [];
+    
+    // Log the data to debug
+    console.log('Fetched health device data:', healthDeviceData.value);
+  } catch (error) {
+    console.error('Error fetching health device data:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to fetch health device data',
       life: 3000
     });
   }
@@ -262,24 +511,144 @@ const clearDoctor = () => {
   appointmentForm.value.paymentAmount = 150; // Reset payment amount
 };
 
+const simulateDeviceData = async () => {
+  try {
+    // Generate random data based on device type
+    const random = (min: number, max: number) => {
+      return Math.floor(Math.random() * (max - min + 1) + min);
+    };
+
+    const generateAbnormal = Math.random() < 0.1;
+
+    switch (healthDeviceForm.value.deviceType) {
+      case DeviceType.SMARTWATCH:
+        healthDeviceForm.value.data = {
+          heartRate: generateAbnormal ? random(100, 140) : random(60, 90),
+          bloodPressure: generateAbnormal 
+            ? `${random(140, 180)}/${random(90, 110)}` 
+            : `${random(100, 130)}/${random(65, 85)}`,
+          oxygenSaturation: generateAbnormal ? random(85, 89) : random(95, 100),
+          temperature: generateAbnormal 
+            ? (random(1001, 1030) / 10) 
+            : (random(970, 986) / 10),
+          steps: random(1000, 15000),
+          caloriesBurned: random(500, 3000),
+          sleepHours: random(4, 9),
+        };
+        break;
+      case DeviceType.BLOOD_PRESSURE:
+        healthDeviceForm.value.data = {
+          bloodPressure: generateAbnormal 
+            ? `${random(140, 180)}/${random(90, 110)}` 
+            : `${random(100, 130)}/${random(65, 85)}`,
+          pulseRate: generateAbnormal ? random(100, 120) : random(60, 90),
+          measurementTime: new Date().toISOString(),
+        };
+        break;
+      case DeviceType.GLUCOSE_MONITOR:
+        healthDeviceForm.value.data = {
+          glucoseLevel: generateAbnormal ? random(180, 300) : random(70, 120),
+          measurementType: 'Blood',
+          measurementTime: new Date().toISOString(),
+          isFasting: Math.random() > 0.5,
+        };
+        break;
+      case DeviceType.PULSE_OXIMETER:
+        healthDeviceForm.value.data = {
+          oxygenSaturation: generateAbnormal ? random(85, 89) : random(95, 100),
+          pulseRate: generateAbnormal ? random(100, 120) : random(60, 90),
+          measurementTime: new Date().toISOString(),
+        };
+        break;
+      case DeviceType.THERMOMETER:
+        healthDeviceForm.value.data = {
+          temperature: generateAbnormal 
+            ? (random(1001, 1030) / 10) 
+            : (random(970, 986) / 10),
+          measurementLocation: 'Oral',
+          measurementTime: new Date().toISOString(),
+        };
+        break;
+      case DeviceType.WEIGHT_SCALE:
+        healthDeviceForm.value.data = {
+          weight: random(120, 250),
+          bmi: (random(180, 350) / 10),
+          bodyFatPercentage: random(10, 35),
+          measurementTime: new Date().toISOString(),
+        };
+        break;
+    }
+
+    // Update timestamp
+    healthDeviceForm.value.timestamp = dayjs().toISOString();
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Data simulated successfully',
+      life: 3000
+    });
+  } catch (error) {
+    console.error('Error simulating data:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to simulate data',
+      life: 3000
+    });
+  }
+};
+
 const submitHealthDevice = async () => {
   try {
     if (!patientId.value) {
-      toast.add({ severity: 'error', summary: 'Error', detail: 'Patient ID not found', life: 3000 });
-      return;
+      throw new Error('Patient ID not found');
     }
 
-    const response = await apiClient.post('/health-devices', {
-      patient: patientId.value,
-      ...healthDeviceForm.value
+    const formData = {
+      ...healthDeviceForm.value,
+      patient: patientId.value
+    };
+
+    console.log('Submitting health device data:', formData);
+    
+    const response = await apiClient.post('/health-devices', formData);
+    
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Health device data submitted successfully',
+      life: 3000
     });
 
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Health device data added successfully', life: 3000 });
+    // Close dialog and reset form
     displayHealthDeviceModal.value = false;
-    resetHealthDeviceForm();
+    healthDeviceForm.value = {
+      deviceId: '',
+      deviceType: 'smartwatch',
+      timestamp: dayjs().toISOString(),
+      data: {
+        heartRate: 75,
+        bloodPressure: "120/80",
+        oxygenSaturation: 98,
+        temperature: 98.6,
+        steps: 8500
+      },
+      isAbnormal: false,
+      abnormalityReason: "",
+      notificationSent: false
+    };
+
+    // Refresh health device data
     await fetchHealthDeviceData();
-  } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to add health device data', life: 3000 });
+  } catch (error) {
+    console.error('Error submitting health device data:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to submit health device data',
+      life: 3000
+    });
   }
 };
 
@@ -299,24 +668,6 @@ const resetHealthDeviceForm = () => {
     abnormalityReason: "",
     notificationSent: false
   };
-};
-
-const fetchHealthDeviceData = async () => {
-  try {
-    if (!patientId.value) {
-      toast.add({ severity: 'error', summary: 'Error', detail: 'Patient ID not found', life: 3000 });
-      return;
-    }
-
-    const response = await apiClient.get(`/health-devices/patient/${patientId.value}?page=1&limit=10`);
-    healthDeviceData.value = response.data.data || [];
-    
-    // Log the data to debug
-    console.log('Health device data:', healthDeviceData.value);
-  } catch (err) {
-    console.error('Error fetching health device data:', err);
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to fetch health device data', life: 3000 });
-  }
 };
 
 const simulateHealthDevice = async () => {
@@ -353,10 +704,36 @@ const handleHealthDeviceAction = () => {
   }
 };
 
+watch(appointments, (newAppointments) => {
+  // Update stats when appointments change
+  stats.value = {
+    totalAppointments: newAppointments.length,
+    completedConsultations: newAppointments.filter(app => app.status === 'completed').length,
+    upcomingAppointments: newAppointments.filter(app => new Date(app.date) >= new Date()).length,
+    lastCheckup: newAppointments.length > 0 ? 
+      newAppointments.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date : null
+  };
+});
+
 onMounted(async () => {
-  await fetchDashboardData();
-  await fetchPatientId();
-  await fetchHealthDeviceData();
+  try {
+    // First initialize patient
+    await initializePatient();
+    
+    // Then fetch dashboard data
+    await fetchDashboardData();
+    
+    // Finally fetch health device data
+    await fetchHealthDeviceData();
+  } catch (error) {
+    console.error('Error mounting dashboard:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to load dashboard. Please try refreshing the page.',
+      life: 3000
+    });
+  }
 });
 </script>
 
@@ -465,6 +842,32 @@ onMounted(async () => {
           :time="formatDate(healthDeviceData[0].timestamp)"
           :loading="loading"
         />
+      </div>
+
+      <!-- Device-specific stats -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <div
+          v-for="stat in deviceStats"
+          :key="stat.label"
+          class="stat-card"
+        >
+          <Card class="p-4">
+            <div class="flex flex-col items-center">
+              <div class="text-4xl font-bold" :class="stat.color">
+                {{ stat.value }}
+                <span class="text-lg ml-2">{{ stat.unit }}</span>
+              </div>
+              <div class="text-lg mt-2">{{ stat.label }}</div>
+              <div 
+                v-if="stat.change !== undefined"
+                class="text-sm mt-2"
+                :class="stat.change > 0 ? 'text-green-500' : 'text-red-500'"
+              >
+                {{ stat.change > 0 ? '+' : '' }}{{ stat.change }}%
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
 
       <!-- Main dashboard content -->
@@ -799,7 +1202,7 @@ onMounted(async () => {
       :style="{ width: '50vw' }"
     >
       <form class="health-device-form">
-        <div class="form-group">
+        <div class="field">
           <label for="deviceId">Device ID</label>
           <InputText 
             id="deviceId" 
@@ -808,17 +1211,19 @@ onMounted(async () => {
           />
         </div>
 
-        <div class="form-group">
+        <div class="field">
           <label for="deviceType">Device Type</label>
           <Dropdown 
             id="deviceType" 
             v-model="healthDeviceForm.deviceType" 
-            :options="['smartwatch', 'fitness-tracker', 'blood-pressure-monitor', 'temperature-monitor']"
+            :options="deviceTypeOptions"
+            optionLabel="label"
+            optionValue="value"
             placeholder="Select device type"
           />
         </div>
 
-        <div class="form-group">
+        <div class="field">
           <label for="timestamp">Timestamp</label>
           <Calendar 
             id="timestamp" 
@@ -829,52 +1234,34 @@ onMounted(async () => {
           />
         </div>
 
-        <div class="form-group">
+        <div class="field">
           <label>Health Data</label>
           <div class="health-data-grid">
-            <div class="data-field">
-              <label>Heart Rate</label>
-              <InputText 
-                type="number" 
-                v-model="healthDeviceForm.data.heartRate" 
-                placeholder="Enter heart rate"
-              />
-            </div>
-            <div class="data-field">
-              <label>Blood Pressure</label>
-              <InputText 
-                v-model="healthDeviceForm.data.bloodPressure" 
-                placeholder="e.g., 120/80"
-              />
-            </div>
-            <div class="data-field">
-              <label>Oxygen Saturation</label>
-              <InputText 
-                type="number" 
-                v-model="healthDeviceForm.data.oxygenSaturation" 
-                placeholder="Enter oxygen saturation"
-              />
-            </div>
-            <div class="data-field">
-              <label>Temperature</label>
-              <InputText 
-                type="number" 
-                v-model="healthDeviceForm.data.temperature" 
-                placeholder="Enter temperature"
-              />
-            </div>
-            <div class="data-field">
-              <label>Steps</label>
-              <InputText 
-                type="number" 
-                v-model="healthDeviceForm.data.steps" 
-                placeholder="Enter steps count"
-              />
+            <div 
+              v-for="field in deviceFields" 
+              :key="field.field" 
+              class="data-field"
+            >
+              <label>{{ field.label }}</label>
+              <div v-if="field.type === 'boolean'">
+                <Checkbox 
+                  v-model="healthDeviceForm.data[field.field]"
+                  :binary="true"
+                />
+              </div>
+              <div v-else>
+                <InputText 
+                  v-model="healthDeviceForm.data[field.field]"
+                  :placeholder="`Enter ${field.label.toLowerCase()}`"
+                  class="w-full"
+                />
+                <small v-if="field.unit" class="block text-gray-500 mt-1">{{ field.unit }}</small>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="form-group">
+        <div class="field">
           <label>Abnormality</label>
           <div class="abnormality-group">
             <Checkbox 
@@ -895,6 +1282,12 @@ onMounted(async () => {
             icon="pi pi-times" 
             class="p-button-text"
             @click="displayHealthDeviceModal = false"
+          />
+          <Button 
+            label="Simulate Data"
+            icon="pi pi-refresh"
+            class="p-button-outlined p-button-primary"
+            @click="simulateDeviceData"
           />
           <Button 
             label="Submit" 
@@ -1312,7 +1705,7 @@ onMounted(async () => {
   padding: 1rem;
 }
 
-.form-group {
+.field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -1341,5 +1734,24 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.stat-card {
+  background: var(--surface-card);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+}
+
+.stat-card .text-4xl {
+  font-size: 2.25rem;
+}
+
+.stat-card .text-lg {
+  font-size: 1.125rem;
+}
+
+.stat-card .text-sm {
+  font-size: 0.875rem;
 }
 </style>

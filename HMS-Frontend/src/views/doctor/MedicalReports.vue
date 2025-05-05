@@ -126,18 +126,62 @@
                     </svg>
                   </div>
                   <div v-show="sectionsOpen.symptoms" class="section-content">
-                    <div class="symptoms-list">
-                      <div v-for="(symptom, index) in reportForm.symptoms" :key="index" class="symptom-item">
-                        {{ symptom }}
-                        <button @click="removeSymptom(index)" class="remove-button">×</button>
+                    <div class="symptoms-container">
+                      <!-- Search and Add Section -->
+                      <div class="symptoms-input-section">
+                        <div class="symptoms-input">
+                          <input
+                            v-model="symptomInput"
+                            placeholder="Search symptoms..."
+                            @input="filterSymptoms"
+                            class="symptom-search"
+                          />
+                          <button
+                            @click="addSymptom"
+                            :disabled="!symptomInput"
+                            class="add-symptom-button"
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <div class="symptoms-list">
+                          <div
+                            v-for="(symptom, index) in filteredSymptoms"
+                            :key="index"
+                            class="symptom-item"
+                            @click="selectSymptom(symptom)"
+                            :class="{ 'selected': selectedSymptoms.includes(symptom) }"
+                          >
+                            {{ symptom }}
+                            <button
+                              v-if="selectedSymptoms.includes(symptom)"
+                              @click.stop="removeSymptom(index)"
+                              class="remove-symptom-button"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div class="form-group">
-                        <input
-                          v-model="symptomInput"
-                          placeholder="Enter symptom"
-                          @keyup.enter="addSymptom"
-                        />
-                        <button @click="addSymptom" class="add-button">Add</button>
+
+                      <!-- Selected Symptoms Section -->
+                      <div v-if="reportForm.symptoms.length > 0" class="selected-symptoms-section">
+                        <h4>Selected Symptoms</h4>
+                        <div class="selected-symptoms-list">
+                          <div
+                            v-for="(symptom, index) in reportForm.symptoms"
+                            :key="index"
+                            class="selected-symptom-item"
+                          >
+                            <span class="symptom-text">{{ symptom }}</span>
+                            <button
+                              @click="removeSymptom(index)"
+                              class="remove-symptom-button"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -176,38 +220,196 @@
                   </svg>
                 </div>
                 <div v-show="sectionsOpen.medications" class="section-content">
-                  <div class="input-grid">
-                    <div class="form-group">
-                      <label>Name</label>
-                      <input v-model="medicationInput.name" placeholder="Medication Name" />
+                  <!-- Existing Medications List -->
+                  <div class="medications-list" v-if="reportForm.medications.length">
+                    <div class="medications-header">
+                      <h4>Added Medications</h4>
                     </div>
-                    <div class="form-group">
-                      <label>Dosage</label>
-                      <input v-model="medicationInput.dosage" placeholder="e.g., 100mg" />
+                    <div class="medications-grid">
+                      <div
+                        v-for="(med, index) in reportForm.medications"
+                        :key="index"
+                        class="medication-card"
+                      >
+                        <div class="medication-card-header">
+                          <div class="medication-card-title">
+                            <span class="medication-name">{{ med.name }}</span>
+                            <span class="medication-form">({{ med.form }})</span>
+                          </div>
+                          <button
+                            @click="removeMedication(index)"
+                            class="remove-button"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div class="medication-card-content">
+                          <div class="medication-details-grid">
+                            <div class="detail-item">
+                              <span class="detail-label">Dosage:</span>
+                              <span class="detail-value">{{ med.dosage }}</span>
+                            </div>
+                            <div class="detail-item">
+                              <span class="detail-label">Breakfast:</span>
+                              <span class="detail-value">{{ med.breakfast }}</span>
+                            </div>
+                            <div class="detail-item">
+                              <span class="detail-label">Lunch:</span>
+                              <span class="detail-value">{{ med.lunch }}</span>
+                            </div>
+                            <div class="detail-item">
+                              <span class="detail-label">Dinner:</span>
+                              <span class="detail-value">{{ med.dinner }}</span>
+                            </div>
+                            <div class="detail-item">
+                              <span class="detail-label">Meal Timing:</span>
+                              <span class="detail-value">{{ med.timing.split(',').map(t => mealTimes.find(m => m.value === t)?.label).join(', ') }}</span>
+                            </div>
+                            <div class="detail-item">
+                              <span class="detail-label">Duration:</span>
+                              <span class="detail-value">{{ med.startDate }} to {{ med.endDate }}</span>
+                            </div>
+                            <div class="detail-item" v-if="med.instructions">
+                              <span class="detail-label">Instructions:</span>
+                              <span class="detail-value">{{ med.instructions }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div class="form-group">
-                      <label>Frequency</label>
-                      <input v-model="medicationInput.frequency" placeholder="e.g., Once daily" />
-                    </div>
-                    <div class="form-group">
-                      <label>Start Date</label>
-                      <input v-model="medicationInput.startDate" type="date" />
-                    </div>
-                    <div class="form-group">
-                      <label>End Date</label>
-                      <input v-model="medicationInput.endDate" type="date" />
-                    </div>
-                    <div class="form-group">
-                      <label>Instructions</label>
-                      <input v-model="medicationInput.instructions" placeholder="e.g., Take with food" />
-                    </div>
-                    <button @click.prevent="addMedication" class="add-button full-width">Add Medication</button>
                   </div>
-                  <div class="symptoms-list">
-                    <div v-for="(medication, index) in reportForm.medications" :key="index" class="symptom-item">
-                      {{ medication.name }} ({{ medication.dosage }}, {{ medication.frequency }})
-                      <button @click="removeMedication(index)" class="remove-button">×</button>
+
+                  <!-- Add New Medication Form -->
+                  <div class="medication-form">
+                    <div class="medication-grid">
+                      <div class="form-group">
+                        <label>Medication Name *</label>
+                        <InputText
+                          v-model="medicationInput.name"
+                          placeholder="Enter medication name"
+                          :class="{ 'p-invalid': validationErrors.medicationName }"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label>Form *</label>
+                        <Dropdown
+                          v-model="medicationInput.form"
+                          :options="medicationFormTypes"
+                          optionLabel="label"
+                          optionValue="value"
+                          :class="{ 'p-invalid': validationErrors.form }"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label>Dosage *</label>
+                        <div class="dosage-inputs">
+                          <div class="dosage-field">
+                            <InputText
+                              v-model="medicationInput.dosageValue"
+                              placeholder="e.g., 100"
+                              :class="{ 'p-invalid': validationErrors.dosageValue }"
+                              type="number"
+                              min="0"
+                              style="width: 100px; margin-right: 10px;"
+                            />
+                            <small v-if="validationErrors.dosageValue" class="p-error">{{ validationErrors.dosageValue }}</small>
+                          </div>
+                          <div class="dosage-field">
+                            <InputText
+                              v-model="medicationInput.dosageUnit"
+                              placeholder="mg, g, mcg"
+                              :class="{ 'p-invalid': validationErrors.dosageUnit }"
+                              style="width: 100px;"
+                            />
+                            <small v-if="validationErrors.dosageUnit" class="p-error">{{ validationErrors.dosageUnit }}</small>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-group">
+                        <div class="frequency-grid">
+                          <div class="frequency-field">
+                            <label>Breakfast</label>
+                            <InputText
+                              v-model="medicationInput.breakfast"
+                              placeholder="0 or 1"
+                              :class="{ 'p-invalid': validationErrors.breakfast }"
+                              @input="validateFrequency('breakfast')"
+                            />
+                            <small v-if="validationErrors.breakfast" class="p-error">{{ validationErrors.breakfast }}</small>
+                          </div>
+
+                          <div class="frequency-field">
+                            <label>Lunch</label>
+                            <InputText
+                              v-model="medicationInput.lunch"
+                              placeholder="0 or 1"
+                              :class="{ 'p-invalid': validationErrors.lunch }"
+                              @input="validateFrequency('lunch')"
+                            />
+                            <small v-if="validationErrors.lunch" class="p-error">{{ validationErrors.lunch }}</small>
+                          </div>
+
+                          <div class="frequency-field">
+                            <label>Dinner</label>
+                            <InputText
+                              v-model="medicationInput.dinner"
+                              placeholder="0 or 1"
+                              :class="{ 'p-invalid': validationErrors.dinner }"
+                              @input="validateFrequency('dinner')"
+                            />
+                            <small v-if="validationErrors.dinner" class="p-error">{{ validationErrors.dinner }}</small>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="form-group">
+                        <label>Meal Timing *</label>
+                        <MultiSelect
+                          v-model="medicationInput.timing"
+                          :options="mealTimes"
+                          optionLabel="label"
+                          optionValue="value"
+                          placeholder="Select meal timing"
+                          :class="{ 'p-invalid': validationErrors.timing }"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label>Start Date *</label>
+                        <Calendar
+                          v-model="medicationInput.startDate"
+                          dateFormat="yy-mm-dd"
+                          :class="{ 'p-invalid': validationErrors.startDate }"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label>End Date *</label>
+                        <Calendar
+                          v-model="medicationInput.endDate"
+                          dateFormat="yy-mm-dd"
+                          :class="{ 'p-invalid': validationErrors.endDate }"
+                        />
+                      </div>
+
+                      <div class="form-group">
+                        <label>Instructions</label>
+                        <InputText
+                          v-model="medicationInput.instructions"
+                          placeholder="Additional instructions"
+                        />
+                      </div>
                     </div>
+
+                    <button
+                      @click="addMedication"
+                      class="add-medication-button"
+                    >
+                      Add Medication
+                    </button>
                   </div>
                 </div>
               </div>
@@ -227,37 +429,218 @@
                   </svg>
                 </div>
                 <div v-show="sectionsOpen.testResults" class="section-content">
-                  <div class="input-grid">
+                  <div class="test-results-grid">
                     <div class="form-group">
-                      <label>Test Name</label>
-                      <input v-model="testResultInput.name" placeholder="Test Name" />
+                      <label>Test Name *</label>
+                      <InputText
+                        v-model="testResultInput.name"
+                        placeholder="e.g., Complete Blood Count"
+                        :class="{ 'p-invalid': testResultErrors.name }"
+                      />
                     </div>
+
                     <div class="form-group">
-                      <label>Date</label>
-                      <input v-model="testResultInput.date" type="date" />
+                      <label>Test Date *</label>
+                      <InputText
+                        v-model="testResultInput.date"
+                        type="date"
+                        :class="{ 'p-invalid': testResultErrors.date }"
+                      />
                     </div>
+
                     <div class="form-group">
-                      <label>Result</label>
-                      <input v-model="testResultInput.result" placeholder="e.g., 95" />
+                      <label>Test Result *</label>
+                      <InputText
+                        v-model="testResultInput.result"
+                        placeholder="e.g., Normal"
+                        :class="{ 'p-invalid': testResultErrors.result }"
+                      />
                     </div>
+
                     <div class="form-group">
-                      <label>Normal Range</label>
-                      <input v-model="testResultInput.normalRange" placeholder="e.g., 70-100" />
+                      <label>Blood Pressure</label>
+                      <div class="blood-pressure-inputs">
+                        <div class="pressure-field">
+                          <InputText
+                            v-model="testResultInput.bloodPressure.systolic"
+                            placeholder="Systolic"
+                            :class="{ 'p-invalid': testResultErrors.bloodPressure.systolic }"
+                            type="number"
+                            min="80"
+                            max="210"
+                          />
+                        </div>
+                        <span class="slash">/</span>
+                        <div class="pressure-field">
+                          <InputText
+                            v-model="testResultInput.bloodPressure.diastolic"
+                            placeholder="Diastolic"
+                            :class="{ 'p-invalid': testResultErrors.bloodPressure.diastolic }"
+                            type="number"
+                            min="40"
+                            max="120"
+                          />
+                        </div>
+                        <span class="unit">mmHg</span>
+                      </div>
                     </div>
+
                     <div class="form-group">
-                      <label>Units</label>
-                      <input v-model="testResultInput.units" placeholder="e.g., mg/dL" />
+                      <label>Glucose (mmol/L)</label>
+                      <InputText
+                        v-model="testResultInput.glucose"
+                        placeholder="e.g., 5.5"
+                        :class="{ 'p-invalid': testResultErrors.glucose }"
+                        type="number"
+                        step="0.1"
+                        min="3.9"
+                        max="20"
+                      />
                     </div>
+
                     <div class="form-group">
-                      <label>Notes</label>
-                      <input v-model="testResultInput.notes" placeholder="e.g., Fasting test" />
+                      <label>Cholesterol (mmol/L)</label>
+                      <InputText
+                        v-model="testResultInput.cholesterol"
+                        placeholder="e.g., 5.0"
+                        :class="{ 'p-invalid': testResultErrors.cholesterol }"
+                        type="number"
+                        step="0.1"
+                        min="3.0"
+                        max="8.0"
+                      />
                     </div>
-                    <button @click.prevent="addTestResult" class="add-button full-width">Add Test Result</button>
+
+                    <div class="form-group">
+                      <label>Triglycerides (mmol/L)</label>
+                      <InputText
+                        v-model="testResultInput.triglycerides"
+                        placeholder="e.g., 1.5"
+                        :class="{ 'p-invalid': testResultErrors.triglycerides }"
+                        type="number"
+                        step="0.1"
+                        min="0.5"
+                        max="5.0"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label>Hemoglobin (g/dL)</label>
+                      <InputText
+                        v-model="testResultInput.hemoglobin"
+                        placeholder="e.g., 14.5"
+                        :class="{ 'p-invalid': testResultErrors.hemoglobin }"
+                        type="number"
+                        step="0.1"
+                        min="12"
+                        max="18"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label>White Blood Cells (×10^9/L)</label>
+                      <InputText
+                        v-model="testResultInput.whiteBloodCells"
+                        placeholder="e.g., 7.5"
+                        :class="{ 'p-invalid': testResultErrors.whiteBloodCells }"
+                        type="number"
+                        step="0.1"
+                        min="4.0"
+                        max="11.0"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label>Red Blood Cells (×10^12/L)</label>
+                      <InputText
+                        v-model="testResultInput.redBloodCells"
+                        placeholder="e.g., 5.0"
+                        :class="{ 'p-invalid': testResultErrors.redBloodCells }"
+                        type="number"
+                        step="0.1"
+                        min="4.0"
+                        max="6.0"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label>Platelets (×10^9/L)</label>
+                      <InputText
+                        v-model="testResultInput.platelets"
+                        placeholder="e.g., 250"
+                        :class="{ 'p-invalid': testResultErrors.platelets }"
+                        type="number"
+                        min="150"
+                        max="450"
+                      />
+                    </div>
                   </div>
-                  <div class="symptoms-list">
-                    <div v-for="(result, index) in reportForm.testResults" :key="index" class="symptom-item">
-                      {{ result.name }}: {{ result.result }} {{ result.units }}
-                      <button @click="removeTestResult(index)" class="remove-button">×</button>
+                  <div class="section-actions">
+                    <button @click="addTestResult" class="add-button full-width">Add Test Result</button>
+                  </div>
+                  <div class="test-results-list" v-if="reportForm.testResults.length">
+                    <div class="test-results-header">
+                      <h4>Added Test Results</h4>
+                    </div>
+                    <div class="test-results-grid">
+                      <div
+                        v-for="(result, index) in reportForm.testResults"
+                        :key="index"
+                        class="test-result-card"
+                      >
+                        <div class="test-result-card-header">
+                          <div class="test-result-card-title">
+                            <span class="test-result-name">{{ result.name }}</span>
+                            <span class="test-result-date">({{ result.date }})</span>
+                          </div>
+                          <button
+                            @click="removeTestResult(index)"
+                            class="remove-button"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div class="test-result-card-content">
+                          <div class="test-result-details-grid">
+                            <div class="detail-item">
+                              <span class="detail-label">Result:</span>
+                              <span class="detail-value">{{ result.result }}</span>
+                            </div>
+                            <div class="detail-item" v-if="result.bloodPressure.systolic || result.bloodPressure.diastolic">
+                              <span class="detail-label">Blood Pressure:</span>
+                              <span class="detail-value">{{ result.bloodPressure.systolic }}/{{ result.bloodPressure.diastolic }} mmHg</span>
+                            </div>
+                            <div class="detail-item" v-if="result.glucose">
+                              <span class="detail-label">Glucose:</span>
+                              <span class="detail-value">{{ result.glucose }} mmol/L</span>
+                            </div>
+                            <div class="detail-item" v-if="result.cholesterol">
+                              <span class="detail-label">Cholesterol:</span>
+                              <span class="detail-value">{{ result.cholesterol }} mmol/L</span>
+                            </div>
+                            <div class="detail-item" v-if="result.triglycerides">
+                              <span class="detail-label">Triglycerides:</span>
+                              <span class="detail-value">{{ result.triglycerides }} mmol/L</span>
+                            </div>
+                            <div class="detail-item" v-if="result.hemoglobin">
+                              <span class="detail-label">Hemoglobin:</span>
+                              <span class="detail-value">{{ result.hemoglobin }} g/dL</span>
+                            </div>
+                            <div class="detail-item" v-if="result.whiteBloodCells">
+                              <span class="detail-label">WBC:</span>
+                              <span class="detail-value">{{ result.whiteBloodCells }} ×10^9/L</span>
+                            </div>
+                            <div class="detail-item" v-if="result.redBloodCells">
+                              <span class="detail-label">RBC:</span>
+                              <span class="detail-value">{{ result.redBloodCells }} ×10^12/L</span>
+                            </div>
+                            <div class="detail-item" v-if="result.platelets">
+                              <span class="detail-label">Platelets:</span>
+                              <span class="detail-value">{{ result.platelets }} ×10^9/L</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -280,49 +663,86 @@
                 <div v-show="sectionsOpen.vitalSigns" class="section-content">
                   <div class="vitals-grid">
                     <div class="form-group">
-                      <label>Blood Pressure</label>
-                      <input
-                        v-model="reportForm.vitalSigns.bloodPressure"
-                        placeholder="e.g., 120/80"
-                        required
-                      />
+                      <label>Blood Pressure *</label>
+                      <div class="blood-pressure-inputs">
+                        <div class="pressure-field">
+                          <InputText
+                            v-model="vitalSignsInput.bloodPressure.systolic"
+                            placeholder="Systolic"
+                            :class="{ 'p-invalid': vitalSignsErrors.bloodPressure.systolic }"
+                            type="number"
+                            min="80"
+                            max="210"
+                          />
+                          <small v-if="vitalSignsErrors.bloodPressure.systolic" class="p-error">{{ vitalSignsErrors.bloodPressure.systolic }}</small>
+                        </div>
+                        <span class="slash">/</span>
+                        <div class="pressure-field">
+                          <InputText
+                            v-model="vitalSignsInput.bloodPressure.diastolic"
+                            placeholder="Diastolic"
+                            :class="{ 'p-invalid': vitalSignsErrors.bloodPressure.diastolic }"
+                            type="number"
+                            min="40"
+                            max="120"
+                          />
+                          <small v-if="vitalSignsErrors.bloodPressure.diastolic" class="p-error">{{ vitalSignsErrors.bloodPressure.diastolic }}</small>
+                        </div>
+                        <span class="unit">mmHg</span>
+                      </div>
                     </div>
+
                     <div class="form-group">
-                      <label>Heart Rate</label>
-                      <input
-                        v-model="reportForm.vitalSigns.heartRate"
+                      <label>Heart Rate *</label>
+                      <InputText
+                        v-model="vitalSignsInput.heartRate"
+                        placeholder="BPM"
+                        :class="{ 'p-invalid': vitalSignsErrors.heartRate }"
                         type="number"
-                        placeholder="bpm"
-                        required
+                        min="40"
+                        max="200"
                       />
+                      <small v-if="vitalSignsErrors.heartRate" class="p-error">{{ vitalSignsErrors.heartRate }}</small>
                     </div>
+
                     <div class="form-group">
-                      <label>Respiratory Rate</label>
-                      <input
-                        v-model="reportForm.vitalSigns.respiratoryRate"
+                      <label>Respiratory Rate *</label>
+                      <InputText
+                        v-model="vitalSignsInput.respiratoryRate"
+                        placeholder="Breaths per minute"
+                        :class="{ 'p-invalid': vitalSignsErrors.respiratoryRate }"
                         type="number"
-                        placeholder="breaths/min"
-                        required
+                        min="8"
+                        max="40"
                       />
+                      <small v-if="vitalSignsErrors.respiratoryRate" class="p-error">{{ vitalSignsErrors.respiratoryRate }}</small>
                     </div>
+
                     <div class="form-group">
-                      <label>Temperature</label>
-                      <input
-                        v-model="reportForm.vitalSigns.temperature"
+                      <label>Temperature *</label>
+                      <InputText
+                        v-model="vitalSignsInput.temperature"
+                        placeholder="°C"
+                        :class="{ 'p-invalid': vitalSignsErrors.temperature }"
                         type="number"
                         step="0.1"
-                        placeholder="°F"
-                        required
+                        min="35"
+                        max="42"
                       />
+                      <small v-if="vitalSignsErrors.temperature" class="p-error">{{ vitalSignsErrors.temperature }}</small>
                     </div>
+
                     <div class="form-group">
-                      <label>Oxygen Saturation</label>
-                      <input
-                        v-model="reportForm.vitalSigns.oxygenSaturation"
-                        type="number"
+                      <label>Oxygen Saturation *</label>
+                      <InputText
+                        v-model="vitalSignsInput.oxygenSaturation"
                         placeholder="%"
-                        required
+                        :class="{ 'p-invalid': vitalSignsErrors.oxygenSaturation }"
+                        type="number"
+                        min="80"
+                        max="100"
                       />
+                      <small v-if="vitalSignsErrors.oxygenSaturation" class="p-error">{{ vitalSignsErrors.oxygenSaturation }}</small>
                     </div>
                   </div>
                   <div class="section-actions">
@@ -350,12 +770,26 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
+import { useToast } from 'primevue/usetoast'
+import Dropdown from 'primevue/dropdown'
+import Checkbox from 'primevue/checkbox'
+import Calendar from 'primevue/calendar'
+import Button from 'primevue/button'
+import Toast from 'primevue/toast'
+import dayjs from 'dayjs'
+import { useRouter } from 'vue-router'
+import Chips from 'primevue/chips'
+import MultiSelect from 'primevue/multiselect'
+import InputText from 'primevue/inputtext'
+import '../../styles/medicalReport.scss'
 
 const authStore = useAuthStore()
+const toast = useToast()
+const router = useRouter()
 const loading = ref(false)
-const error = ref(null)
-const doctorId = ref(null)
-const appointments = ref([])
+const error = ref<string | null>(null)
+const doctorId = ref<string | null>(null)
+const appointments = ref<any[]>([])
 const medicalReports = ref({
   data: [],
   total: 0,
@@ -367,16 +801,19 @@ const reportForm = ref({
   title: '',
   date: '',
   diagnosis: '',
-  symptoms: [],
+  symptoms: [] as string[],
   treatmentPlan: '',
-  medications: [],
-  testResults: [],
+  medications: [] as any[],
+  testResults: [] as any[],
   vitalSigns: {
-    bloodPressure: '',
-    heartRate: null,
-    respiratoryRate: null,
-    temperature: null,
-    oxygenSaturation: null
+    bloodPressure: {
+      systolic: '',
+      diastolic: ''
+    },
+    heartRate: '',
+    respiratoryRate: '',
+    temperature: '',
+    oxygenSaturation: ''
   },
   notes: '',
   followUpDate: ''
@@ -392,66 +829,483 @@ const sectionsOpen = ref({
   symptoms: false
 })
 
+const vitalSignsInput = ref({
+  bloodPressure: {
+    systolic: '',
+    diastolic: ''
+  },
+  heartRate: '',
+  respiratoryRate: '',
+  temperature: '',
+  oxygenSaturation: ''
+})
+
+const vitalSignsErrors = ref({
+  bloodPressure: {
+    systolic: '',
+    diastolic: ''
+  },
+  heartRate: '',
+  respiratoryRate: '',
+  temperature: '',
+  oxygenSaturation: ''
+})
+
 const symptomInput = ref('')
+const filteredSymptoms = ref<string[]>([])
+const selectedSymptoms = ref<string[]>([])
+
+const medicationInput = ref({
+  name: '',
+  form: '',
+  dosageValue: '',
+  dosageUnit: '',
+  breakfast: '',
+  lunch: '',
+  dinner: '',
+  startDate: '',
+  endDate: '',
+  instructions: '',
+  timing: []
+})
+
+const validationErrors = ref({
+  medicationName: '',
+  form: '',
+  dosageValue: '',
+  dosageUnit: '',
+  breakfast: '',
+  lunch: '',
+  dinner: '',
+  startDate: '',
+  endDate: ''
+})
+
+const testResultInput = ref({
+  name: '',
+  date: '',
+  result: '',
+  bloodPressure: {
+    systolic: '',
+    diastolic: ''
+  },
+  glucose: '',
+  cholesterol: '',
+  triglycerides: '',
+  hemoglobin: '',
+  whiteBloodCells: '',
+  redBloodCells: '',
+  platelets: ''
+})
+
+const testResultErrors = ref({
+  name: '',
+  date: '',
+  result: '',
+  bloodPressure: {
+    systolic: '',
+    diastolic: ''
+  },
+  glucose: '',
+  cholesterol: '',
+  triglycerides: '',
+  hemoglobin: '',
+  whiteBloodCells: '',
+  redBloodCells: '',
+  platelets: ''
+})
+
+const medicationFormTypes = ref([
+  { label: 'Tablet', value: 'tablet' },
+  { label: 'Syrup', value: 'syrup' },
+  { label: 'Capsule', value: 'capsule' },
+  { label: 'Injection', value: 'injection' },
+  { label: 'Cream', value: 'cream' }
+])
+
+const mealTimes = ref([
+  { label: 'Before Breakfast', value: 'before_breakfast' },
+  { label: 'After Breakfast', value: 'after_breakfast' },
+  { label: 'Before Lunch', value: 'before_lunch' },
+  { label: 'After Lunch', value: 'after_lunch' },
+  { label: 'Before Dinner', value: 'before_dinner' },
+  { label: 'After Dinner', value: 'after_dinner' },
+  { label: 'Bedtime', value: 'bedtime' }
+])
+
+const validateVitalSigns = () => {
+  const errors = {
+    bloodPressure: {
+      systolic: '',
+      diastolic: ''
+    },
+    heartRate: '',
+    respiratoryRate: '',
+    temperature: '',
+    oxygenSaturation: ''
+  }
+
+  // Blood Pressure Validation
+  if (vitalSignsInput.value.bloodPressure.systolic) {
+    const systolic = parseInt(vitalSignsInput.value.bloodPressure.systolic)
+    if (isNaN(systolic)) {
+      errors.bloodPressure.systolic = 'Please enter a valid number'
+    } else if (systolic < 80) {
+      errors.bloodPressure.systolic = 'Systolic pressure should be at least 80'
+    } else if (systolic > 210) {
+      errors.bloodPressure.systolic = 'Systolic pressure should not exceed 210'
+    } else if (vitalSignsInput.value.bloodPressure.diastolic && systolic <= parseInt(vitalSignsInput.value.bloodPressure.diastolic)) {
+      errors.bloodPressure.systolic = 'Systolic pressure should be higher than diastolic pressure'
+    }
+  }
+
+  if (vitalSignsInput.value.bloodPressure.diastolic) {
+    const diastolic = parseInt(vitalSignsInput.value.bloodPressure.diastolic)
+    if (isNaN(diastolic)) {
+      errors.bloodPressure.diastolic = 'Please enter a valid number'
+    } else if (diastolic < 40) {
+      errors.bloodPressure.diastolic = 'Diastolic pressure should be at least 40'
+    } else if (diastolic > 120) {
+      errors.bloodPressure.diastolic = 'Diastolic pressure should not exceed 120'
+    } else if (vitalSignsInput.value.bloodPressure.systolic && diastolic >= parseInt(vitalSignsInput.value.bloodPressure.systolic)) {
+      errors.bloodPressure.diastolic = 'Diastolic pressure should be lower than systolic pressure'
+    }
+  }
+
+  // Heart Rate Validation
+  if (vitalSignsInput.value.heartRate) {
+    const heartRate = parseInt(vitalSignsInput.value.heartRate)
+    if (isNaN(heartRate)) {
+      errors.heartRate = 'Please enter a valid number'
+    } else if (heartRate < 40) {
+      errors.heartRate = 'Heart rate should be at least 40 BPM'
+    } else if (heartRate > 200) {
+      errors.heartRate = 'Heart rate should not exceed 200 BPM'
+    }
+  }
+
+  // Respiratory Rate Validation
+  if (vitalSignsInput.value.respiratoryRate) {
+    const respiratoryRate = parseInt(vitalSignsInput.value.respiratoryRate)
+    if (isNaN(respiratoryRate)) {
+      errors.respiratoryRate = 'Please enter a valid number'
+    } else if (respiratoryRate < 8) {
+      errors.respiratoryRate = 'Respiratory rate should be at least 8 breaths per minute'
+    } else if (respiratoryRate > 40) {
+      errors.respiratoryRate = 'Respiratory rate should not exceed 40 breaths per minute'
+    }
+  }
+
+  // Temperature Validation
+  if (vitalSignsInput.value.temperature) {
+    const temperature = parseFloat(vitalSignsInput.value.temperature)
+    if (isNaN(temperature)) {
+      errors.temperature = 'Please enter a valid number'
+    } else if (temperature < 35) {
+      errors.temperature = 'Temperature should be at least 35°C'
+    } else if (temperature > 42) {
+      errors.temperature = 'Temperature should not exceed 42°C'
+    }
+  }
+
+  // Oxygen Saturation Validation
+  if (vitalSignsInput.value.oxygenSaturation) {
+    const oxygenSaturation = parseInt(vitalSignsInput.value.oxygenSaturation)
+    if (isNaN(oxygenSaturation)) {
+      errors.oxygenSaturation = 'Please enter a valid number'
+    } else if (oxygenSaturation < 80) {
+      errors.oxygenSaturation = 'Oxygen saturation should be at least 80%'
+    } else if (oxygenSaturation > 100) {
+      errors.oxygenSaturation = 'Oxygen saturation should not exceed 100%'
+    }
+  }
+
+  // Update the UI errors
+  vitalSignsErrors.value = errors
+  return errors
+}
+
+const validateMedication = () => {
+  const errors = validationErrors.value
+  let isValid = true
+
+  // Reset errors
+  Object.keys(errors).forEach(key => errors[key] = '')
+
+  // Validate required fields
+  if (!medicationInput.value.name) {
+    errors.medicationName = 'Medication name is required'
+    isValid = false
+  }
+
+  if (!medicationInput.value.form) {
+    errors.form = 'Form is required'
+    isValid = false
+  }
+
+  if (!medicationInput.value.dosageValue) {
+    errors.dosageValue = 'Dosage value is required'
+    isValid = false
+  } else if (isNaN(medicationInput.value.dosageValue)) {
+    errors.dosageValue = 'Please enter a valid number'
+    isValid = false
+  }
+
+  if (!medicationInput.value.dosageUnit) {
+    errors.dosageUnit = 'Dosage unit is required'
+    isValid = false
+  }
+
+  // Validate frequency fields
+  validateFrequency('breakfast')
+  validateFrequency('lunch')
+  validateFrequency('dinner')
+
+  if (errors.breakfast || errors.lunch || errors.dinner) {
+    isValid = false
+  }
+
+  if (!medicationInput.value.startDate) {
+    errors.startDate = 'Start date is required'
+    isValid = false
+  }
+
+  if (!medicationInput.value.endDate) {
+    errors.endDate = 'End date is required'
+    isValid = false
+  }
+
+  return isValid
+}
+
+const validateFrequency = (field: string) => {
+  const value = medicationInput.value[field]
+  const errors = validationErrors.value
+
+  if (!value) {
+    errors[field] = 'This field is required'
+    return
+  }
+
+  if (value !== '0' && value !== '1') {
+    errors[field] = 'Please enter either 0 or 1'
+    return
+  }
+
+  errors[field] = ''
+}
+
+const addMedication = async () => {
+  try {
+    if (!validateMedication()) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Please correct the errors in the medication form',
+        life: 5000
+      })
+      return
+    }
+
+    // Combine dosage value and unit
+    const dosage = `${medicationInput.value.dosageValue}${medicationInput.value.dosageUnit}`
+
+    // Create a copy of the medication input
+    const medicationToAdd = {
+      ...medicationInput.value,
+      dosage,
+      timing: medicationInput.value.timing.join(',')
+    }
+
+    // Add to report form
+    reportForm.value.medications.push(medicationToAdd)
+
+    // Reset form
+    medicationInput.value = {
+      name: '',
+      form: '',
+      dosageValue: '',
+      dosageUnit: '',
+      breakfast: '',
+      lunch: '',
+      dinner: '',
+      startDate: '',
+      endDate: '',
+      instructions: '',
+      timing: []
+    }
+
+    // Reset validation errors
+    validationErrors.value = {
+      medicationName: '',
+      form: '',
+      dosageValue: '',
+      dosageUnit: '',
+      breakfast: '',
+      lunch: '',
+      dinner: '',
+      startDate: '',
+      endDate: ''
+    }
+
+    // Show success message
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Medication added successfully',
+      life: 3000
+    })
+  } catch (error) {
+    console.error('Error adding medication:', error)
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to add medication',
+      life: 3000
+    })
+  }
+}
+
+const filterSymptoms = () => {
+  if (!symptomInput.value) {
+    filteredSymptoms.value = []
+    return
+  }
+  
+  // For now, we'll just show the input as a filtered result
+  // In a real application, you might want to filter from a predefined list of symptoms
+  filteredSymptoms.value = [symptomInput.value]
+}
+
+const addSymptom = () => {
+  if (!symptomInput.value || selectedSymptoms.value.includes(symptomInput.value)) {
+    return
+  }
+  
+  selectedSymptoms.value.push(symptomInput.value)
+  reportForm.value.symptoms = [...selectedSymptoms.value]
+  symptomInput.value = ''
+  filteredSymptoms.value = []
+}
+
+const removeSymptom = (index: number) => {
+  selectedSymptoms.value.splice(index, 1)
+  reportForm.value.symptoms = [...selectedSymptoms.value]
+}
+
+const addTestResult = () => {
+  try {
+    // Validate required fields
+    if (!testResultInput.value.name || !testResultInput.value.date || !testResultInput.value.result) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Test name, date, and result are required',
+        life: 3000
+      })
+      return
+    }
+
+    // Create a copy of the test result input
+    const testResultToAdd = {
+      ...testResultInput.value
+    }
+
+    // Add to report form
+    reportForm.value.testResults.push(testResultToAdd)
+
+    // Reset form
+    testResultInput.value = {
+      name: '',
+      date: '',
+      result: '',
+      bloodPressure: {
+        systolic: '',
+        diastolic: ''
+      },
+      glucose: '',
+      cholesterol: '',
+      triglycerides: '',
+      hemoglobin: '',
+      whiteBloodCells: '',
+      redBloodCells: '',
+      platelets: ''
+    }
+
+    // Reset validation errors
+    testResultErrors.value = {
+      name: '',
+      date: '',
+      result: '',
+      bloodPressure: {
+        systolic: '',
+        diastolic: ''
+      },
+      glucose: '',
+      cholesterol: '',
+      triglycerides: '',
+      hemoglobin: '',
+      whiteBloodCells: '',
+      redBloodCells: '',
+      platelets: ''
+    }
+
+    // Show success message
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Test result added successfully',
+      life: 3000
+    })
+  } catch (error) {
+    console.error('Error adding test result:', error)
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to add test result',
+      life: 3000
+    })
+  }
+}
 
 onMounted(async () => {
-  console.log('Component mounted')
   if (!(await authStore.checkAuth())) {
-    console.log('Not authenticated, redirecting to login')
     router.push('/login')
     return
   }
 
-  // Get token from auth store
   const token = authStore.token
   if (!token) {
-    console.log('No token found')
     router.push('/login')
     return
   }
 
-  // Fetch doctor profile
   try {
     const response = await axios.get('http://localhost:3000/doctors/profile', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     })
-    
+
     const doctorProfile = response.data
-    console.log('Doctor profile response:', doctorProfile)
-    
     if (doctorProfile && doctorProfile._id) {
       doctorId.value = doctorProfile._id
-      console.log('Set doctor ID:', doctorId.value)
-      
-      if (doctorId.value) {
-        console.log('Fetching appointments and medical reports')
-        await Promise.all([
-          fetchAppointments(),
-          fetchMedicalReports()
-        ])
-      }
+      await Promise.all([
+        fetchAppointments(),
+        fetchMedicalReports()
+      ])
     } else {
-      console.error('Invalid doctor profile response')
       error.value = 'Failed to fetch doctor profile'
     }
-  } catch (error) {
-    console.error('Error fetching doctor profile:', error)
-    console.error('Error response:', error.response?.data)
-    error.value = error.response?.data?.message || 'Failed to fetch doctor profile'
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to fetch doctor profile'
   }
 })
 
 async function fetchAppointments() {
   try {
     loading.value = true
-    console.log('Fetching appointments for doctor:', doctorId.value)
-    console.log('Current page:', currentPage.value)
-    console.log('Rows per page:', rowsPerPage.value)
-    
     if (!doctorId.value) {
-      console.error('No doctor ID available')
       error.value = 'Doctor ID not available'
       return
     }
@@ -465,14 +1319,52 @@ async function fetchAppointments() {
         limit: rowsPerPage.value
       }
     })
-    console.log('Appointments API response:', response.data)
+
     appointments.value = response.data.data
     totalRecords.value = response.data.total
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to fetch appointments'
+  } finally {
     loading.value = false
-  } catch (error) {
-    console.error('Error fetching appointments:', error)
-    console.error('Error response:', error.response?.data)
-    error.value = error.response?.data?.message || 'Failed to fetch appointments'
+  }
+}
+
+async function fetchMedicalReports() {
+  try {
+    loading.value = true
+    const response = await axios.get(`http://localhost:3000/medical-reports/doctor/${doctorId.value}`, {
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      params: {
+        page: medicalReports.value.page,
+        limit: medicalReports.value.limit
+      }
+    })
+    medicalReports.value = response.data
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to fetch medical reports'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadPage(page: number) {
+  try {
+    loading.value = true
+    const response = await axios.get(`http://localhost:3000/medical-reports/doctor/${doctorId.value}`, {
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      params: {
+        page,
+        limit: medicalReports.value.limit
+      }
+    })
+    medicalReports.value = response.data
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to load page'
+  } finally {
     loading.value = false
   }
 }
@@ -488,11 +1380,7 @@ function handleAppointmentChange() {
   }
 }
 
-function getPatientFullName(patient) {
-  return patient ? `${patient.firstName} ${patient.lastName}` : ''
-}
-
-function formatDate(dateString) {
+function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString()
 }
 
@@ -507,11 +1395,14 @@ function resetForm() {
     medications: [],
     testResults: [],
     vitalSigns: {
-      bloodPressure: '',
-      heartRate: null,
-      respiratoryRate: null,
-      temperature: null,
-      oxygenSaturation: null
+      bloodPressure: {
+        systolic: '',
+        diastolic: ''
+      },
+      heartRate: '',
+      respiratoryRate: '',
+      temperature: '',
+      oxygenSaturation: ''
     },
     notes: '',
     followUpDate: ''
@@ -522,39 +1413,85 @@ function resetForm() {
     vitalSigns: false,
     symptoms: false
   }
-}
-
-function addMedication() {
-  if (medicationInput.value.name.trim()) {
-    reportForm.value.medications.push({ ...medicationInput.value })
-    resetMedicationInput()
+  medicationInput.value = {
+    name: '',
+    form: '',
+    dosageValue: '',
+    dosageUnit: '',
+    breakfast: '',
+    lunch: '',
+    dinner: '',
+    startDate: '',
+    endDate: '',
+    instructions: '',
+    timing: []
   }
-}
-
-function removeMedication(index) {
-  reportForm.value.medications.splice(index, 1)
-}
-
-function addTestResult() {
-  if (testResultInput.value.name.trim()) {
-    reportForm.value.testResults.push({ ...testResultInput.value })
-    resetTestResultInput()
+  validationErrors.value = {
+    medicationName: '',
+    form: '',
+    dosageValue: '',
+    dosageUnit: '',
+    breakfast: '',
+    lunch: '',
+    dinner: '',
+    startDate: '',
+    endDate: ''
   }
-}
-
-function removeTestResult(index) {
-  reportForm.value.testResults.splice(index, 1)
-}
-
-function addSymptom() {
-  if (symptomInput.value.trim()) {
-    reportForm.value.symptoms.push(symptomInput.value.trim())
-    symptomInput.value = ''
+  vitalSignsInput.value = {
+    bloodPressure: {
+      systolic: '',
+      diastolic: ''
+    },
+    heartRate: '',
+    respiratoryRate: '',
+    temperature: '',
+    oxygenSaturation: ''
   }
-}
-
-function removeSymptom(index) {
-  reportForm.value.symptoms.splice(index, 1)
+  vitalSignsErrors.value = {
+    bloodPressure: {
+      systolic: '',
+      diastolic: ''
+    },
+    heartRate: '',
+    respiratoryRate: '',
+    temperature: '',
+    oxygenSaturation: ''
+  }
+  testResultInput.value = {
+    name: '',
+    date: '',
+    result: '',
+    bloodPressure: {
+      systolic: '',
+      diastolic: ''
+    },
+    glucose: '',
+    cholesterol: '',
+    triglycerides: '',
+    hemoglobin: '',
+    whiteBloodCells: '',
+    redBloodCells: '',
+    platelets: ''
+  }
+  testResultErrors.value = {
+    name: '',
+    date: '',
+    result: '',
+    bloodPressure: {
+      systolic: '',
+      diastolic: ''
+    },
+    glucose: '',
+    cholesterol: '',
+    triglycerides: '',
+    hemoglobin: '',
+    whiteBloodCells: '',
+    redBloodCells: '',
+    platelets: ''
+  }
+  symptomInput.value = ''
+  filteredSymptoms.value = []
+  selectedSymptoms.value = []
 }
 
 function openModal() {
@@ -567,65 +1504,15 @@ function closeModal() {
   resetForm()
 }
 
-function toggleSection(section) {
+function toggleSection(section: keyof typeof sectionsOpen.value) {
   sectionsOpen.value[section] = !sectionsOpen.value[section]
-}
-
-const medicationInput = ref({
-  name: '',
-  dosage: '',
-  frequency: '',
-  startDate: '',
-  endDate: '',
-  instructions: ''
-})
-
-function resetMedicationInput() {
-  medicationInput.value = {
-    name: '',
-    dosage: '',
-    frequency: '',
-    startDate: '',
-    endDate: '',
-    instructions: ''
-  }
-}
-
-const testResultInput = ref({
-  name: '',
-  date: '',
-  result: '',
-  normalRange: '',
-  units: '',
-  notes: ''
-})
-
-function resetTestResultInput() {
-  testResultInput.value = {
-    name: '',
-    date: '',
-    result: '',
-    normalRange: '',
-    units: '',
-    notes: ''
-  }
-}
-
-function resetVitalSigns() {
-  reportForm.value.vitalSigns = {
-    bloodPressure: '',
-    heartRate: null,
-    respiratoryRate: null,
-    temperature: null,
-    oxygenSaturation: null
-  }
 }
 
 async function submitReport() {
   try {
     loading.value = true
-    
-    // Validate all required fields
+
+    // Basic form validations
     if (!reportForm.value.appointment) {
       error.value = 'Please select an appointment'
       return
@@ -650,38 +1537,81 @@ async function submitReport() {
       error.value = 'Treatment plan is required'
       return
     }
-    if (!reportForm.value.vitalSigns.bloodPressure) {
-      error.value = 'Blood pressure is required'
-      return
-    }
-    if (reportForm.value.vitalSigns.heartRate === null) {
-      error.value = 'Heart rate is required'
-      return
-    }
-    if (reportForm.value.vitalSigns.respiratoryRate === null) {
-      error.value = 'Respiratory rate is required'
-      return
-    }
-    if (reportForm.value.vitalSigns.temperature === null) {
-      error.value = 'Temperature is required'
-      return
-    }
-    if (reportForm.value.vitalSigns.oxygenSaturation === null) {
-      error.value = 'Oxygen saturation is required'
+
+    // Validate vital signs values first
+    const errors = validateVitalSigns()
+    
+    // Check if there are any validation errors
+    const hasErrors = Object.values(errors).some(error => {
+      return Object.values(error).some(err => err)
+    })
+
+    if (hasErrors) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Please correct the errors in the vital signs form',
+        life: 5000
+      })
       return
     }
 
-    // Get the selected appointment to get the patient ID
+    // Check if all required vital signs fields are filled after validation
+    if (!vitalSignsInput.value.bloodPressure.systolic || !vitalSignsInput.value.bloodPressure.diastolic) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Blood pressure is required',
+        life: 5000
+      })
+      return
+    }
+    if (!vitalSignsInput.value.heartRate) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Heart rate is required',
+        life: 5000
+      })
+      return
+    }
+    if (!vitalSignsInput.value.respiratoryRate) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Respiratory rate is required',
+        life: 5000
+      })
+      return
+    }
+    if (!vitalSignsInput.value.temperature) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Temperature is required',
+        life: 5000
+      })
+      return
+    }
+    if (!vitalSignsInput.value.oxygenSaturation) {
+      toast.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Oxygen saturation is required',
+        life: 5000
+      })
+      return
+    }
+
     const selectedAppointment = appointments.value.find(a => a._id === reportForm.value.appointment)
     if (!selectedAppointment) {
       error.value = 'Appointment not found'
       return
     }
 
-    // Prepare the data for submission
     const reportData = {
       appointment: reportForm.value.appointment,
-      patient: selectedAppointment.patient._id, // Use the patient ID from the appointment
+      patient: selectedAppointment.patient._id,
       title: reportForm.value.title,
       date: reportForm.value.date,
       diagnosis: reportForm.value.diagnosis,
@@ -689,570 +1619,41 @@ async function submitReport() {
       treatmentPlan: reportForm.value.treatmentPlan,
       medications: reportForm.value.medications,
       testResults: reportForm.value.testResults,
-      vitalSigns: reportForm.value.vitalSigns,
+      vitalSigns: vitalSignsInput.value,
       notes: reportForm.value.notes,
       followUpDate: reportForm.value.followUpDate,
       doctor: doctorId.value
     }
 
-    // Make the API call
     await axios.post('http://localhost:3000/medical-reports', reportData, {
       headers: {
         'Authorization': `Bearer ${authStore.token}`
       }
     })
 
-    // Reset form and close modal
     resetForm()
     closeModal()
-    
-    // Refresh the medical reports list
     await fetchMedicalReports()
-  } catch (error) {
-    error.value = error.response?.data?.message || 'Failed to create medical report'
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Medical report created successfully',
+      life: 3000
+    })
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to create medical report'
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.value,
+      life: 5000
+    })
   } finally {
-    loading.value = false
-  }
-}
-
-async function fetchMedicalReports() {
-  try {
-    loading.value = true
-    const response = await axios.get(`http://localhost:3000/medical-reports/doctor/${doctorId.value}`, {
-      headers: {
-        'Authorization': `Bearer ${authStore.token}`
-      },
-      params: {
-        page: 1,
-        limit: 10
-      }
-    })
-    medicalReports.value = response.data
-    loading.value = false
-  } catch (error) {
-    console.error('Error fetching medical reports:', error)
-    error.value = error.response?.data?.message || 'Failed to fetch medical reports'
-    loading.value = false
-  }
-}
-
-async function loadPage(page: number) {
-  try {
-    loading.value = true
-    const response = await axios.get(`http://localhost:3000/medical-reports/doctor/${doctorId.value}`, {
-      headers: {
-        'Authorization': `Bearer ${authStore.token}`
-      },
-      params: {
-        page: page,
-        limit: 10
-      }
-    })
-    medicalReports.value = response.data
-    loading.value = false
-  } catch (error) {
-    console.error('Error loading page:', error)
-    error.value = error.response?.data?.message || 'Failed to load page'
     loading.value = false
   }
 }
 </script>
 
-<style scoped>
-.medical-reports {
-  min-height: 100vh;
-  background-color: #f4f7fa;
-  padding: 2rem;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.add-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #4f46e5;
-  color: white;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-}
-
-.add-button:hover {
-  background-color: #4338ca;
-  transform: translateY(-2px);
-}
-
-.add-button.full-width {
-  grid-column: span 3;
-}
-
-.icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.error-message {
-  padding: 1rem;
-  background-color: #fee2e2;
-  color: #dc2626;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-.loading-spinner {
-  text-align: center;
-  font-size: 1rem;
-  color: #4f46e5;
-  padding: 2rem;
-}
-
-.table-container {
-  background-color: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
-}
-
-.table-wrapper {
-  overflow-x: auto;
-}
-
-.reports-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.reports-table th,
-.reports-table td {
-  padding: 1rem;
-  text-align: left;
-  font-size: 0.875rem;
-}
-
-.reports-table th {
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  background-color: #f9fafb;
-}
-
-.reports-table td {
-  color: #1f2937;
-}
-
-.reports-table tr {
-  transition: background-color 0.2s ease;
-}
-
-.reports-table tr:hover {
-  background-color: #f9fafb;
-}
-
-.status-completed {
-  padding: 0.25rem 0.75rem;
-  background-color: #d1fae5;
-  color: #065f46;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background-color: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-  padding: 2rem;
-  width: 100%;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.modal-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: #6b7280;
-  transition: color 0.3s ease, transform 0.2s ease;
-}
-
-.close-button:hover {
-  color: #1f2937;
-  transform: scale(1.1);
-}
-
-.close-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group.full-width {
-  grid-column: span 2;
-}
-
-.form-group label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #1f2937;
-}
-
-.form-group input,
-.form-group textarea {
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-}
-
-.form-group textarea {
-  resize: vertical;
-}
-
-/* Custom Dropdown Styling */
-.select-wrapper {
-  position: relative;
-}
-
-.form-group select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  width: 100%;
-  padding: 0.75rem 2.5rem 0.75rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  background-color: white;
-  color: #1f2937;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.form-group select:focus {
-  outline: none;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-}
-
-.form-group select:hover {
-  border-color: #a5b4fc;
-}
-
-.form-group select option[disabled] {
-  color: #9ca3af;
-}
-
-.select-arrow {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #6b7280;
-  pointer-events: none;
-}
-
-.symptoms-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.symptom-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  background-color: #f9fafb;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.remove-button {
-  color: #ef4444;
-  font-size: 1.25rem;
-  transition: color 0.3s ease, transform 0.2s ease;
-}
-
-.remove-button:hover {
-  color: #dc2626;
-  transform: scale(1.1);
-}
-
-.form-section {
-  background-color: #fafafa;
-  padding: 1.5rem;
-  border-radius: 0.5rem;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  padding: 0.75rem;
-  background-color: #e5e7eb;
-  border-radius: 0.5rem;
-  transition: background-color 0.3s ease;
-}
-
-.section-header:hover {
-  background-color: #d1d5db;
-}
-
-.section-header h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.toggle-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  transition: transform 0.3s ease;
-}
-
-.rotate-180 {
-  transform: rotate(180deg);
-}
-
-.section-content {
-  padding-top: 1rem;
-}
-
-.input-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.input-grid .form-group {
-  margin-bottom: 0;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
-.cancel-button,
-.submit-button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-}
-
-.cancel-button {
-  background-color: #e5e7eb;
-  color: #1f2937;
-}
-
-.cancel-button:hover {
-  background-color: #d1d5db;
-  transform: translateY(-2px);
-}
-
-.submit-button {
-  background-color: #4f46e5;
-  color: white;
-}
-
-.submit-button:hover {
-  background-color: #4338ca;
-  transform: translateY(-2px);
-}
-
-.submit-button:disabled {
-  background-color: #a5b4fc;
-  cursor: not-allowed;
-}
-
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.4s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .modal-content,
-.modal-leave-active .modal-content {
-  transition: transform 0.4s ease, opacity 0.4s ease;
-}
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.9);
-  opacity: 0;
-}
-
-.vitals-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.vitals-grid .form-group {
-  margin-bottom: 0;
-}
-
-.section-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.reset-button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  background-color: #e5e7eb;
-  color: #1f2937;
-}
-
-.reset-button:hover {
-  background-color: #d1d5db;
-  transform: translateY(-2px);
-}
-
-.add-button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  background-color: #2563eb;
-  color: white;
-}
-
-.add-button:hover {
-  background-color: #1d4ed8;
-  transform: translateY(-2px);
-}
-
-.symptoms-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
-.symptoms-grid .form-group {
-  margin-bottom: 0;
-}
-
-.pagination {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1rem;
-}
-
-.page-info {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.page-controls {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.page-controls button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  background-color: #e5e7eb;
-  color: #1f2937;
-}
-
-.page-controls button:hover {
-  background-color: #d1d5db;
-  transform: translateY(-2px);
-}
-
-.page-controls button:disabled {
-  background-color: #d1d5db;
-  cursor: not-allowed;
-}
+<style>
+/* Any additional styles that need to be scoped can go here */
 </style>

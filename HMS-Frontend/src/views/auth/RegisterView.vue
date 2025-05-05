@@ -318,7 +318,7 @@ const handleRegister = async () => {
       life: 5000,
     });
 
-    router.push('/dashboard'); // Redirect to dashboard or another page
+    router.push('/patient'); // Redirect to dashboard or another page
   } catch (error: any) {
     toast.add({
       severity: 'error',
@@ -334,7 +334,6 @@ const handleRegister = async () => {
 
 <style scoped>
 .register-container {
-  background: linear-gradient(135deg, #9b87f5 0%, #7e69ab 100%);
   display: flex;
   align-items: center;
   justify-content: center;
