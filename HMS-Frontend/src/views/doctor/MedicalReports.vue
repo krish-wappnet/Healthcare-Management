@@ -98,12 +98,36 @@
                 </div>
                 <div class="form-group">
                   <label>Date</label>
-                  <input type="date" v-model="reportForm.date" required />
+                  <Calendar
+                    id="report-date"
+                    v-model="reportForm.date"
+                    dateFormat="dd/mm/yy"
+                    placeholder="Select date"
+                    :showOnFocus="true"
+                  >
+                    <template #button>
+                      <svg class="calendar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </template>
+                  </Calendar>
                 </div>
                 <div class="form-group">
-                  <label>Follow-Up Date</label>
-                  <input type="date" v-model="reportForm.followUpDate" />
-                </div>
+                <label for="report-follow-up-date">Follow-Up Date</label>
+                <Calendar
+                  id="report-follow-up-date"
+                  v-model="reportForm.followUpDate"
+                  dateFormat="dd/mm/yy"
+                  placeholder="Select follow-up date"
+                  :showOnFocus="true"
+                >
+                  <template #button>
+                    <svg class="calendar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </template>
+                </Calendar>
+  </div>
               </div>
 
               <!-- Diagnosis and Symptoms -->
@@ -377,22 +401,39 @@
                         />
                       </div>
 
+                    <div class="form-group">
+                          <label>Start Date *</label>
+                          <Calendar
+                            v-model="medicationInput.startDate"
+                            dateFormat="dd/mm/yy"
+                            placeholder="Select start date"
+                            :class="{ 'p-invalid': validationErrors.startDate }"
+                          >
+                            <template #button>
+                              <svg class="calendar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </template>
+                          </Calendar>
+                          <small v-if="validationErrors.startDate" class="p-error">{{ validationErrors.startDate }}</small>
+                        </div>
                       <div class="form-group">
-                        <label>Start Date *</label>
+                        <label for="medication-end-date">End Date *</label>
                         <Calendar
-                          v-model="medicationInput.startDate"
-                          dateFormat="yy-mm-dd"
-                          :class="{ 'p-invalid': validationErrors.startDate }"
-                        />
-                      </div>
-
-                      <div class="form-group">
-                        <label>End Date *</label>
-                        <Calendar
+                          id="medication-end-date"
                           v-model="medicationInput.endDate"
-                          dateFormat="yy-mm-dd"
+                          dateFormat="dd/mm/yy"
+                          placeholder="Select end date"
                           :class="{ 'p-invalid': validationErrors.endDate }"
-                        />
+                          :showOnFocus="true"
+                        >
+                          <template #button>
+                            <svg class="calendar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </template>
+                        </Calendar>
+                        <small v-if="validationErrors.endDate" class="p-error">{{ validationErrors.endDate }}</small>
                       </div>
 
                       <div class="form-group">
