@@ -91,7 +91,6 @@ const isAuthPage = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
   position: relative;
   z-index: 1;
 }
