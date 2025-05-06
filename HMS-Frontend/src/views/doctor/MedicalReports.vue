@@ -106,7 +106,7 @@
                     :showOnFocus="true"
                   >
                     <template #button>
-                      <svg class="calendar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg class="calendar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </template>
@@ -285,9 +285,18 @@
                               <span class="detail-label">Dinner:</span>
                               <span class="detail-value">{{ med.dinner }}</span>
                             </div>
-                            <div class="detail-item">
+                          <div class="detail-item">
                               <span class="detail-label">Meal Timing:</span>
-                              <span class="detail-value">{{ med.timing.split(',').map(t => mealTimes.find(m => m.value === t)?.label).join(', ') }}</span>
+                              <div class="meal-timing-chips">
+                                <span
+                                  v-for="(timing, index) in med.timing.split(',').map(t => mealTimes.find(m => m.value === t.trim())?.label).filter(label => label)"
+                                  :key="index"
+                                  class="meal-timing-chip"
+                                  :title="`Take medication ${timing.toLowerCase()}`"
+                                >
+                                  {{ timing }}
+                                </span>
+                              </div>
                             </div>
                             <div class="detail-item">
                               <span class="detail-label">Duration:</span>
@@ -389,17 +398,20 @@
                         </div>
                       </div>
 
-                      <div class="form-group">
-                        <label>Meal Timing *</label>
-                        <MultiSelect
-                          v-model="medicationInput.timing"
-                          :options="mealTimes"
-                          optionLabel="label"
-                          optionValue="value"
-                          placeholder="Select meal timing"
-                          :class="{ 'p-invalid': validationErrors.timing }"
-                        />
-                      </div>
+                   <div class="form-group">
+                  <label for="medication-timing">Meal Timing *</label>
+                  <MultiSelect
+                    id="medication-timing"
+                    v-model="medicationInput.timing"
+                    :options="mealTimes"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Select meal timing"
+                    :class="{ 'p-invalid': validationErrors.timing }"
+                    @change="handleMealTimingChange"
+                  />
+                  <small v-if="validationErrors.timing" class="p-error">{{ validationErrors.timing }}</small>
+                </div>
 
                     <div class="form-group">
                           <label>Start Date *</label>
@@ -808,7 +820,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
 import { useToast } from 'primevue/usetoast'
@@ -919,7 +931,8 @@ const validationErrors = ref({
   lunch: '',
   dinner: '',
   startDate: '',
-  endDate: ''
+  endDate: '',
+  timing: ''
 })
 
 const testResultInput = ref({
@@ -1116,6 +1129,11 @@ const validateMedication = () => {
     isValid = false
   }
 
+  if (!medicationInput.value.timing.length) {
+    errors.timing = 'Meal timing is required'
+    isValid = false
+  }
+
   return isValid
 }
 
@@ -1186,7 +1204,8 @@ const addMedication = async () => {
       lunch: '',
       dinner: '',
       startDate: '',
-      endDate: ''
+      endDate: '',
+      timing: ''
     }
 
     // Show success message
@@ -1308,6 +1327,14 @@ const addTestResult = () => {
     })
   }
 }
+
+const handleMealTimingChange = (event: any) => {
+  medicationInput.value.timing = event.value;
+}
+
+watch(() => medicationInput.value.timing, (newVal) => {
+  console.log('Meal timing changed:', newVal);
+}, { deep: true });
 
 onMounted(async () => {
   if (!(await authStore.checkAuth())) {
@@ -1476,7 +1503,8 @@ function resetForm() {
     lunch: '',
     dinner: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    timing: ''
   }
   vitalSignsInput.value = {
     bloodPressure: {
@@ -1653,17 +1681,51 @@ async function submitReport() {
     const reportData = {
       appointment: reportForm.value.appointment,
       patient: selectedAppointment.patient._id,
+      doctor: doctorId.value,
       title: reportForm.value.title,
       date: reportForm.value.date,
       diagnosis: reportForm.value.diagnosis,
       symptoms: reportForm.value.symptoms,
       treatmentPlan: reportForm.value.treatmentPlan,
-      medications: reportForm.value.medications,
-      testResults: reportForm.value.testResults,
-      vitalSigns: vitalSignsInput.value,
-      notes: reportForm.value.notes,
       followUpDate: reportForm.value.followUpDate,
-      doctor: doctorId.value
+      medications: reportForm.value.medications.map(med => ({
+        name: med.name,
+        form: med.form,
+        dosageValue: med.dosageValue,
+        dosageUnit: med.dosageUnit,
+        breakfast: med.breakfast,
+        lunch: med.lunch,
+        dinner: med.dinner,
+        timing: med.timing,
+        instructions: med.instructions,
+        startDate: med.startDate,
+        endDate: med.endDate
+      })),
+      testResults: reportForm.value.testResults.map(test => ({
+        name: test.name,
+        date: test.date,
+        result: test.result,
+        bloodPressure: `${test.bloodPressure.systolic}/${test.bloodPressure.diastolic}`,
+        cholesterol: test.cholesterol,
+        glucose: test.glucose,
+        hemoglobin: test.hemoglobin,
+        platelets: test.platelets,
+        redBloodCells: test.redBloodCells,
+        triglycerides: test.triglycerides,
+        whiteBloodCells: test.whiteBloodCells,
+        notes: test.notes
+      })),
+      vitalSigns: {
+        bloodPressure: {
+          systolic: parseInt(vitalSignsInput.value.bloodPressure.systolic),
+          diastolic: parseInt(vitalSignsInput.value.bloodPressure.diastolic)
+        },
+        heartRate: parseInt(vitalSignsInput.value.heartRate),
+        respiratoryRate: parseInt(vitalSignsInput.value.respiratoryRate),
+        temperature: parseFloat(vitalSignsInput.value.temperature),
+        oxygenSaturation: parseInt(vitalSignsInput.value.oxygenSaturation)
+      },
+      notes: reportForm.value.notes
     }
 
     await axios.post('http://localhost:3000/medical-reports', reportData, {
@@ -1696,5 +1758,5 @@ async function submitReport() {
 </script>
 
 <style>
-/* Any additional styles that need to be scoped can go here */
+
 </style>

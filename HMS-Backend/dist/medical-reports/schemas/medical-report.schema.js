@@ -16,6 +16,10 @@ let MedicalReport = class MedicalReport {
 };
 exports.MedicalReport = MedicalReport;
 __decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Appointment', required: true }),
+    __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
+], MedicalReport.prototype, "appointment", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Patient', required: true }),
     __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
 ], MedicalReport.prototype, "patient", void 0);
@@ -23,10 +27,6 @@ __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Doctor', required: true }),
     __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
 ], MedicalReport.prototype, "doctor", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Appointment' }),
-    __metadata("design:type", mongoose_2.Schema.Types.ObjectId)
-], MedicalReport.prototype, "appointment", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
@@ -40,26 +40,35 @@ __decorate([
     __metadata("design:type", String)
 ], MedicalReport.prototype, "diagnosis", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [String], default: [] }),
+    (0, mongoose_1.Prop)({ type: [String], required: true }),
     __metadata("design:type", Array)
 ], MedicalReport.prototype, "symptoms", void 0);
 __decorate([
-    (0, mongoose_1.Prop)(),
+    (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
 ], MedicalReport.prototype, "treatmentPlan", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Date)
+], MedicalReport.prototype, "followUpDate", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: [
             {
-                name: { type: String },
-                dosage: { type: String },
-                frequency: { type: String },
-                startDate: { type: Date },
-                endDate: { type: Date },
+                name: { type: String, required: true },
+                form: { type: String, required: true },
+                dosageValue: { type: String, required: true },
+                dosageUnit: { type: String, required: true },
+                breakfast: { type: String, required: true },
+                lunch: { type: String, required: true },
+                dinner: { type: String, required: true },
+                timing: { type: String, required: true },
                 instructions: { type: String },
+                startDate: { type: Date, required: true },
+                endDate: { type: Date, required: true },
             },
         ],
-        default: [],
+        required: true,
     }),
     __metadata("design:type", Array)
 ], MedicalReport.prototype, "medications", void 0);
@@ -67,34 +76,37 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: [
             {
-                name: { type: String },
-                date: { type: Date },
-                result: { type: String },
-                normalRange: { type: String },
-                units: { type: String },
+                name: { type: String, required: true },
+                date: { type: Date, required: true },
+                result: { type: String, required: true },
+                bloodPressure: { type: String },
+                cholesterol: { type: String },
+                glucose: { type: String },
+                hemoglobin: { type: String },
+                platelets: { type: String },
+                redBloodCells: { type: String },
+                triglycerides: { type: String },
+                whiteBloodCells: { type: String },
                 notes: { type: String },
             },
         ],
-        default: [],
+        required: true,
     }),
     __metadata("design:type", Array)
 ], MedicalReport.prototype, "testResults", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: {
-            bloodPressure: { type: String },
-            heartRate: { type: Number },
-            respiratoryRate: { type: Number },
-            temperature: { type: Number },
-            oxygenSaturation: { type: Number },
+            bloodPressure: {
+                systolic: { type: String, required: true },
+                diastolic: { type: String, required: true },
+            },
+            heartRate: { type: Number, required: true },
+            respiratoryRate: { type: Number, required: true },
+            temperature: { type: Number, required: true },
+            oxygenSaturation: { type: Number, required: true },
         },
-        default: {
-            bloodPressure: '',
-            heartRate: 0,
-            respiratoryRate: 0,
-            temperature: 0,
-            oxygenSaturation: 0,
-        },
+        required: true,
     }),
     __metadata("design:type", Object)
 ], MedicalReport.prototype, "vitalSigns", void 0);
@@ -102,10 +114,6 @@ __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], MedicalReport.prototype, "notes", void 0);
-__decorate([
-    (0, mongoose_1.Prop)(),
-    __metadata("design:type", Date)
-], MedicalReport.prototype, "followUpDate", void 0);
 exports.MedicalReport = MedicalReport = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], MedicalReport);

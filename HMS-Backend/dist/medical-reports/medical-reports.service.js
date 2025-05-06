@@ -75,8 +75,9 @@ let MedicalReportsService = class MedicalReportsService {
         const skip = (page - 1) * limit;
         const data = await this.medicalReportModel
             .find({ patient: patientId })
-            .populate('doctor')
-            .populate('appointment')
+            .populate('doctor', 'name specialization')
+            .populate('appointment', 'date status')
+            .populate('patient', 'name age gender')
             .sort({ date: -1 })
             .skip(skip)
             .limit(limit)
@@ -94,8 +95,8 @@ let MedicalReportsService = class MedicalReportsService {
         const skip = (page - 1) * limit;
         const data = await this.medicalReportModel
             .find({ doctor: doctorId })
-            .populate('patient')
-            .populate('appointment')
+            .populate('patient', 'name age gender')
+            .populate('appointment', 'date status')
             .sort({ date: -1 })
             .skip(skip)
             .limit(limit)

@@ -22,6 +22,7 @@ import Textarea from "primevue/textarea";
 import Checkbox from 'primevue/checkbox';
 import Chip from 'primevue/chip';
 import MultiSelect from 'primevue/multiselect';
+import '../../styles/PatientDashboard.scss';
 
 // Define interfaces for type safety
 interface HealthData {
@@ -738,7 +739,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="patient-dashboard">
+   <div class="patient-dashboard">
     <!-- Header with Title and Profile Icon -->
     <div class="dashboard-header">
       <h1 class="dashboard-title">Patient Dashboard</h1>
@@ -1038,12 +1039,13 @@ onMounted(async () => {
       v-model:visible="displayAppointmentModal" 
       header="Book Appointment" 
       :modal="true" 
-      :style="{ width: '60vw' }"
+      :style="{ width: 'min(90vw, 700px)' }"
       :closable="true"
+      class="appointment-modal"
     >
       <form class="appointment-form">
         <div class="form-header">
-          <h3>Appointment Details</h3>
+          <h3>Schedule Your Appointment</h3>
           <div v-if="selectedDoctorFee" class="consultation-fee">
             <span class="fee-label">Consultation Fee:</span>
             <span class="fee-amount">₹{{ selectedDoctorFee }}</span>
@@ -1065,7 +1067,7 @@ onMounted(async () => {
             />
             
             <!-- Doctor Info Display -->
-            <div v-if="selectedDoctor" class="doctor-info mt-2">
+            <div v-if="selectedDoctor" class="doctor-info mt-3">
               <div class="doctor-details">
                 <div class="doctor-name">{{ doctors.find(d => d.value === selectedDoctor)?.doctor.user.firstName }} {{ doctors.find(d => d.value === selectedDoctor)?.doctor.user.lastName }}</div>
                 <div class="doctor-specialty">{{ doctors.find(d => d.value === selectedDoctor)?.doctor.specialization }}</div>
@@ -1074,7 +1076,7 @@ onMounted(async () => {
             </div>
             <Button
               v-if="selectedDoctor"
-              label="Clear Doctor"
+              label="Clear Selection"
               icon="pi pi-times"
               class="p-button-text p-button-danger mt-2"
               @click="clearDoctor"
@@ -1083,12 +1085,13 @@ onMounted(async () => {
 
           <!-- Date and Time -->
           <div class="form-group">
-            <label for="date" class="form-label">Date</label>
+            <label for="date" class="form-label">Appointment Date</label>
             <Calendar
               v-model="appointmentForm.date"
               dateFormat="dd/mm/yy"
               :minDate="new Date()"
               class="w-full"
+              showIcon
             />
           </div>
 
@@ -1126,7 +1129,7 @@ onMounted(async () => {
           </div>
 
           <!-- Reason for Visit -->
-          <div class="form-group">
+          <div class="form-group full-width">
             <label for="reason" class="form-label">Reason for Visit</label>
             <Textarea
               v-model="appointmentForm.reasonForVisit"
@@ -1137,7 +1140,7 @@ onMounted(async () => {
           </div>
 
           <!-- Additional Information -->
-          <div class="form-group">
+          <div class="form-group full-width">
             <label for="notes" class="form-label">Additional Notes</label>
             <Textarea
               v-model="appointmentForm.notes"
@@ -1155,6 +1158,7 @@ onMounted(async () => {
               :options="['Fever', 'Cough', 'Headache', 'Fatigue', 'Nausea', 'Other']"
               placeholder="Select symptoms"
               class="w-full"
+              display="chip"
             />
           </div>
 
@@ -1163,7 +1167,7 @@ onMounted(async () => {
             <div class="payment-section">
               <div class="payment-checkbox">
                 <Checkbox v-model="appointmentForm.isPaid" :binary="true" />
-                <label class="ml-2">Pre-Payment</label>
+                <label class="ml-2">Pay Now</label>
               </div>
               <div class="payment-amount" v-if="appointmentForm.isPaid">
                 Amount: ₹{{ appointmentForm.paymentAmount }}
@@ -1199,20 +1203,22 @@ onMounted(async () => {
       v-model:visible="displayHealthDeviceModal" 
       header="Add Health Device Data" 
       :modal="true" 
-      :style="{ width: '50vw' }"
+      :style="{ width: 'min(90vw, 600px)' }"
+      class="health-device-modal"
     >
       <form class="health-device-form">
         <div class="field">
-          <label for="deviceId">Device ID</label>
+          <label for="deviceId" class="form-label">Device ID</label>
           <InputText 
             id="deviceId" 
             v-model="healthDeviceForm.deviceId" 
             placeholder="Enter device ID"
+            class="w-full"
           />
         </div>
 
         <div class="field">
-          <label for="deviceType">Device Type</label>
+          <label for="deviceType" class="form-label">Device Type</label>
           <Dropdown 
             id="deviceType" 
             v-model="healthDeviceForm.deviceType" 
@@ -1220,29 +1226,32 @@ onMounted(async () => {
             optionLabel="label"
             optionValue="value"
             placeholder="Select device type"
+            class="w-full"
           />
         </div>
 
         <div class="field">
-          <label for="timestamp">Timestamp</label>
+          <label for="timestamp" class="form-label">Timestamp</label>
           <Calendar 
             id="timestamp" 
             v-model="healthDeviceForm.timestamp" 
             :showTime="true"
             :showSeconds="true"
             placeholder="Select date and time"
+            class="w-full"
+            showIcon
           />
         </div>
 
         <div class="field">
-          <label>Health Data</label>
+          <label class="form-label">Health Data</label>
           <div class="health-data-grid">
             <div 
               v-for="field in deviceFields" 
               :key="field.field" 
               class="data-field"
             >
-              <label>{{ field.label }}</label>
+              <label class="form-label">{{ field.label }}</label>
               <div v-if="field.type === 'boolean'">
                 <Checkbox 
                   v-model="healthDeviceForm.data[field.field]"
@@ -1262,7 +1271,7 @@ onMounted(async () => {
         </div>
 
         <div class="field">
-          <label>Abnormality</label>
+          <label class="form-label">Abnormality</label>
           <div class="abnormality-group">
             <Checkbox 
               v-model="healthDeviceForm.isAbnormal"
@@ -1272,6 +1281,7 @@ onMounted(async () => {
               v-model="healthDeviceForm.abnormalityReason"
               placeholder="Enter abnormality reason"
               :disabled="!healthDeviceForm.isAbnormal"
+              class="w-full"
             />
           </div>
         </div>
@@ -1301,457 +1311,6 @@ onMounted(async () => {
   </div>
 </template>
 
-<style scoped>
-.patient-dashboard {
-  padding: 2rem;
-  background: var(--surface-ground);
-}
-
-/* Modal Styling */
-.appointment-modal {
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  background: var(--surface-ground);
-  transition: transform 0.3s ease, opacity 0.3s ease;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-:deep(.p-dialog-header) {
-  background: var(--surface-ground);
-  border-bottom: 1px solid var(--surface-border);
-  padding: 2rem !important;
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-color);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-:deep(.p-dialog-content) {
-  padding: 2.5rem !important;
-  background: var(--surface-ground);
-  border-radius: 0 0 16px 16px;
-}
-
-:deep(.p-dialog-header .p-dialog-header-close) {
-  color: var(--text-color-secondary);
-  transition: all 0.2s ease;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-:deep(.p-dialog-header .p-dialog-header-close:hover) {
-  color: var(--primary-color);
-  background: rgba(155, 135, 245, 0.1);
-}
-
-/* Form Styling */
-.appointment-form {
-  padding: 1.5rem;
-}
-
-.form-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--surface-border);
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-label {
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.consultation-fee {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--primary-color);
-}
-
-.doctor-info {
-  background: var(--surface-card);
-  border-radius: 8px;
-  padding: 1rem;
-  border: 1px solid var(--surface-border);
-}
-
-.doctor-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.doctor-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.doctor-specialty {
-  color: var(--text-color-secondary);
-}
-
-.doctor-fee {
-  color: var(--primary-color);
-  font-weight: 500;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 2rem;
-  flex-wrap: wrap;
-}
-
-.payment-section {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.payment-amount {
-  color: var(--primary-color);
-  font-weight: 500;
-}
-
-.p-button-text {
-  flex: 1;
-  min-width: 120px;
-}
-
-.p-button-warning {
-  background: var(--warning-color);
-  color: white;
-}
-
-.p-button-warning:hover {
-  background: var(--warning-color-dark);
-}
-
-.p-button-danger {
-  background: var(--danger-color);
-  color: white;
-}
-
-.p-button-danger:hover {
-  background: var(--danger-color-dark);
-}
-
-@media (max-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Existing Dashboard Styles (Unchanged) */
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.dashboard-title {
-  font-size: 2rem;
-  color: var(--text-color);
-  margin: 0;
-}
-
-.profile-icon-container {
-  display: flex;
-  align-items: center;
-}
-
-.profile-icon {
-  color: var(--primary-color);
-  background: transparent;
-  border: none;
-  padding: 0.5rem;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.profile-icon:hover {
-  background: rgba(155, 135, 245, 0.1);
-  transform: scale(1.1);
-}
-
-.dashboard-content {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-
-.welcome-banner {
-  background: var(--surface-ground);
-  padding: 2rem;
-  border-radius: 10px;
-  margin-bottom: 2rem;
-}
-
-.welcome-content {
-  margin-bottom: 1.5rem;
-}
-
-.appointment-alert {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--surface-card);
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-top: 1rem;
-}
-
-.appointment-alert i {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.alert-content {
-  flex: 1;
-}
-
-.no-appointment {
-  background: var(--surface-card);
-  color: var(--text-color-secondary);
-}
-
-.no-appointment i {
-  color: var(--text-color-secondary);
-}
-
-.health-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-  margin-bottom: 2rem;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
-  margin-bottom: 2rem;
-}
-
-.dashboard-left,
-.dashboard-right {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.health-chart-card,
-.health-tips-card,
-.calendar-card,
-.activity-card {
-  height: 100%;
-}
-
-.chart-container {
-  height: 300px;
-}
-
-.no-data {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 2rem;
-  color: var(--text-color-secondary);
-}
-
-.no-data i {
-  font-size: 3rem;
-}
-
-.tips-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.tip-item {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background: var(--surface-card);
-}
-
-.tip-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  color: white;
-}
-
-.tip-content h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-}
-
-.activity-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.timeline-item {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background: var(--surface-card);
-}
-
-.timeline-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  color: white;
-}
-
-.timeline-content h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-}
-
-.timeline-date {
-  font-size: 0.875rem;
-  color: var(--text-color-secondary);
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  gap: 1rem;
-}
-
-:deep(.p-button) {
-  background: var(--primary-color);
-  color: white;
-  border-radius: 8px;
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-:deep(.p-button:hover) {
-  background: var(--primary-color-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(155, 135, 245, 0.2);
-}
-
-:deep(.p-button.p-button-text) {
-  color: var(--primary-color);
-  background: transparent;
-  border: none;
-  padding: 0.5rem;
-}
-
-:deep(.p-button.p-button-text:hover) {
-  background: rgba(155, 135, 245, 0.1);
-}
-
-.health-device-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.health-data-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.data-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.abnormality-group {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.stat-card {
-  background: var(--surface-card);
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--surface-border);
-}
-
-.stat-card .text-4xl {
-  font-size: 2.25rem;
-}
-
-.stat-card .text-lg {
-  font-size: 1.125rem;
-}
-
-.stat-card .text-sm {
-  font-size: 0.875rem;
-}
+<style lang="scss">
+@import '../../styles/PatientDashboard.scss';
 </style>

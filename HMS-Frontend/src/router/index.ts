@@ -19,6 +19,7 @@ const DoctorPatients = () => import('../views/doctor/PatientsView.vue')
 const DoctorAppointments = () => import('../views/doctor/AppointmentsView.vue')
 const DoctorConsultations = () => import('../views/doctor/ConsultationsView.vue')
 const DoctorMedicalReports = () => import('../views/doctor/MedicalReports.vue')
+const DoctorDiagnose = () => import('../views/doctor/Diagnose.vue')
 const RoleSelection = () => import('../views/auth/RoleSelection.vue')
 const DoctorRegistration = () => import('../views/auth/DoctorRegistration.vue')
 
@@ -28,6 +29,7 @@ const PatientProfile = () => import('../views/patient/PatientProfile.vue')
 const PatientAppointments = () => import('../views/patient/PatientAppointments.vue')
 const PatientReports = () => import('../views/patient/PatientReports.vue')
 const PatientRegistration = () => import('../views/auth/PatientRegistration.vue')
+const PatientBookAppointment = () => import(/* webpackChunkName: "patient-book-appointment" */ '@/views/patient/BookAppointment.vue')
 // Uncomment and use when views are available
 // const PatientConsultations = () => import('../views/patient/ConsultationsView.vue')
 // const PatientHealth = () => import('../views/patient/HealthView.vue')
@@ -173,6 +175,13 @@ const router = createRouter({
       meta: { role: 'doctor' },
       beforeEnter: authGuard
     },
+    {
+      path: '/doctor/diagnose',
+      name: 'doctor-diagnose',
+      component: DoctorDiagnose,
+      meta: { role: 'doctor' },
+      beforeEnter: authGuard
+    },
 
     // Patient routes
     {
@@ -190,18 +199,28 @@ const router = createRouter({
       beforeEnter: authGuard
     },
     {
+      path: '/patient/book-appointment',
+      name: 'patient-book-appointment',
+      component: PatientBookAppointment,
+      meta: { requiresAuth: true, role: 'patient' }
+    },
+    {
       path: '/patient/appointments',
       name: 'patient-appointments',
       component: PatientAppointments,
-      meta: { role: 'patient' },
-      beforeEnter: authGuard
+      meta: { requiresAuth: true, role: 'patient' }
     },
     {
       path: '/patient/reports',
       name: 'patient-reports',
       component: PatientReports,
-      meta: { role: 'patient' },
-      beforeEnter: authGuard
+      meta: { requiresAuth: true, role: 'patient' }
+    },
+    {
+      path: '/patient/book-appointment',
+      name: 'patient-book-appointment',
+      component: PatientBookAppointment,
+      meta: { requiresAuth: true, role: 'patient' }
     }
   ]
 })

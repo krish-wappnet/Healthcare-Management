@@ -68,11 +68,13 @@ const navItems = computed(() => {
         { icon: 'pi pi-home', label: 'Dashboard', route: '/doctor' },
         { icon: 'pi pi-calendar', label: 'Appointments', route: '/doctor/appointments' },
         { icon: 'pi pi-video', label: 'Consultations', route: '/doctor/consultations' },
-        { icon: 'pi pi-file', label: 'Medical Reports', route: '/doctor/medical-reports' }
+        { icon: 'pi pi-file', label: 'Medical Reports', route: '/doctor/medical-reports' },
+        { icon: 'pi pi-search', label: 'Diagnose', route: '/doctor/diagnose' }
       ]
     case 'patient':
       return [
         { icon: 'pi pi-home', label: 'Dashboard', route: '/patient' },
+        { icon: 'pi pi-calendar-plus', label: 'Book Appointment', route: '/patient/book-appointment' },
         { icon: 'pi pi-calendar', label: 'Appointments', route: '/patient/appointments' },
         { icon: 'pi pi-file', label: 'Medical Reports', route: '/patient/reports' }
       ]

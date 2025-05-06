@@ -6,14 +6,14 @@ export type MedicalReportDocument = MedicalReport & Document;
 
 @Schema({ timestamps: true })
 export class MedicalReport {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Appointment', required: true })
+  appointment: MongooseSchema.Types.ObjectId;
+
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Patient', required: true })
   patient: MongooseSchema.Types.ObjectId;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Doctor', required: true })
   doctor: MongooseSchema.Types.ObjectId;
-
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Appointment' })
-  appointment: MongooseSchema.Types.ObjectId;
 
   @Prop({ required: true })
   title: string;
@@ -24,74 +24,99 @@ export class MedicalReport {
   @Prop({ required: true })
   diagnosis: string;
 
-  @Prop({ type: [String], default: [] })
+  @Prop({ type: [String], required: true })
   symptoms: string[];
 
-  @Prop()
+  @Prop({ required: true })
   treatmentPlan: string;
+
+  @Prop()
+  followUpDate: Date;
 
   @Prop({
     type: [
       {
-        name: { type: String },
-        dosage: { type: String },
-        frequency: { type: String },
-        startDate: { type: Date },
-        endDate: { type: Date },
+        name: { type: String, required: true },
+        form: { type: String, required: true },
+        dosageValue: { type: String, required: true },
+        dosageUnit: { type: String, required: true },
+        breakfast: { type: String, required: true },
+        lunch: { type: String, required: true },
+        dinner: { type: String, required: true },
+        timing: { type: String, required: true },
         instructions: { type: String },
+        startDate: { type: Date, required: true },
+        endDate: { type: Date, required: true },
       },
     ],
-    default: [],
+    required: true,
   })
   medications: {
     name: string;
-    dosage: string;
-    frequency: string;
+    form: string;
+    dosageValue: string;
+    dosageUnit: string;
+    breakfast: string;
+    lunch: string;
+    dinner: string;
+    timing: string;
+    instructions: string;
     startDate: Date;
     endDate: Date;
-    instructions: string;
   }[];
 
   @Prop({
     type: [
       {
-        name: { type: String },
-        date: { type: Date },
-        result: { type: String },
-        normalRange: { type: String },
-        units: { type: String },
+        name: { type: String, required: true },
+        date: { type: Date, required: true },
+        result: { type: String, required: true },
+        bloodPressure: { type: String },
+        cholesterol: { type: String },
+        glucose: { type: String },
+        hemoglobin: { type: String },
+        platelets: { type: String },
+        redBloodCells: { type: String },
+        triglycerides: { type: String },
+        whiteBloodCells: { type: String },
         notes: { type: String },
       },
     ],
-    default: [],
+    required: true,
   })
   testResults: {
     name: string;
     date: Date;
     result: string;
-    normalRange: string;
-    units: string;
+    bloodPressure: string;
+    cholesterol: string;
+    glucose: string;
+    hemoglobin: string;
+    platelets: string;
+    redBloodCells: string;
+    triglycerides: string;
+    whiteBloodCells: string;
     notes: string;
   }[];
 
   @Prop({
     type: {
-      bloodPressure: { type: String },
-      heartRate: { type: Number },
-      respiratoryRate: { type: Number },
-      temperature: { type: Number },
-      oxygenSaturation: { type: Number },
+      bloodPressure: {
+        systolic: { type: String, required: true },
+        diastolic: { type: String, required: true },
+      },
+      heartRate: { type: Number, required: true },
+      respiratoryRate: { type: Number, required: true },
+      temperature: { type: Number, required: true },
+      oxygenSaturation: { type: Number, required: true },
     },
-    default: {
-      bloodPressure: '',
-      heartRate: 0,
-      respiratoryRate: 0,
-      temperature: 0,
-      oxygenSaturation: 0,
-    },
+    required: true,
   })
   vitalSigns: {
-    bloodPressure: string;
+    bloodPressure: {
+      systolic: string;
+      diastolic: string;
+    };
     heartRate: number;
     respiratoryRate: number;
     temperature: number;
@@ -100,9 +125,6 @@ export class MedicalReport {
 
   @Prop()
   notes: string;
-
-  @Prop()
-  followUpDate: Date;
 }
 
 export const MedicalReportSchema = SchemaFactory.createForClass(MedicalReport);
