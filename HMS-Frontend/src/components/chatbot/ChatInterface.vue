@@ -57,7 +57,6 @@ const fetchChatHistory = async () => {
 }
 
 // Send message
-// Send message to API
 const sendMessage = async () => {
   if (!message.value.trim()) return
 
@@ -146,15 +145,16 @@ const formatTime = (date: Date) => {
 <template>
   <div class="chatbot-container" :aria-hidden="!isChatOpen">
     <!-- Chat Icon -->
-    <transition name="icon-fade">
+    <transition name="icon-scale">
       <div
         v-if="!isChatOpen"
         class="chat-icon"
         @click="toggleChat"
         role="button"
-        aria-label="Open chat"
+        aria-label="Open Health Assistant chat"
         tabindex="0"
         @keydown.enter="toggleChat"
+        @keydown.space.prevent="toggleChat"
       >
         <i class="pi pi-comments"></i>
       </div>
@@ -165,7 +165,10 @@ const formatTime = (date: Date) => {
       <div v-if="isChatOpen" class="chat-interface" role="dialog" aria-labelledby="chat-header-title">
         <div class="chat-container">
           <div class="chat-header">
-            <h3 id="chat-header-title">Health Assistant</h3>
+            <div class="header-content">
+              <h3 id="chat-header-title">Health Assistant</h3>
+              <p class="header-subtitle">Your medical query companion</p>
+            </div>
             <Button
               icon="pi pi-times"
               class="p-button-text p-button-rounded close-button"
@@ -177,8 +180,19 @@ const formatTime = (date: Date) => {
           <div class="chat-messages" ref="chatContainer">
             <!-- Empty State -->
             <div v-if="!chatHistory.length && !loading" class="empty-state">
-              <i class="pi pi-comments empty-icon"></i>
-              <p>Start chatting...</p>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                class="empty-icon"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <p>Start a conversation about your health...</p>
             </div>
 
             <!-- Messages -->
@@ -207,6 +221,7 @@ const formatTime = (date: Date) => {
               @keypress.enter.prevent="sendMessage"
               :disabled="loading"
               aria-label="Type your message"
+              rows="2"
             ></textarea>
             <Button
               icon="pi pi-send"
@@ -223,44 +238,63 @@ const formatTime = (date: Date) => {
 </template>
 
 <style lang="scss" scoped>
+:root {
+  --primary: #9b87f5;
+  --primary-dark: #7e69ab;
+  --primary-light: #f1efff;
+  --neutral-50: #f9fafb;
+  --neutral-100: #f3f4f6;
+  --neutral-200: #e5e7eb;
+  --text-primary: #1a1f2c;
+  --text-secondary: #6b7280;
+  --border-color: #e2e8f0;
+}
+
 .chatbot-container {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 24px;
+  right: 24px;
   z-index: 10000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   .chat-icon {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 
     &:hover {
-      transform: scale(1.1);
+      transform: scale(1.05);
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    &:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
     }
 
     i {
       color: white;
-      font-size: 1.8rem;
+      font-size: 2rem;
     }
   }
 
   .chat-interface {
-    width: 380px;
-    max-height: 80vh;
+    width: 400px;
+    max-height: 85vh;
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    border: 1px solid var(--neutral-200);
 
     .chat-container {
       display: flex;
@@ -269,37 +303,46 @@ const formatTime = (date: Date) => {
     }
 
     .chat-header {
-      padding: 1rem 1.5rem;
-      background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-      border-radius: 16px 16px 0 0;
+      padding: 1.25rem 1.75rem;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      border-radius: 20px 20px 0 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
 
-      h3 {
-        margin: 0;
-        color: white;
-        font-size: 1.2rem;
+      .header-content {
+        display: flex;
+        flex-direction: column;
+
+        h3 {
+          margin: 0;
+          color: white;
+          font-size: 1.3rem;
+          font-weight: 600;
+        }
+
+        .header-subtitle {
+          margin: 0;
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 0.85rem;
+        }
       }
 
       .close-button {
         color: white !important;
-        font-size: 1.2rem;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.2);
+        width: 36px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.15);
         transition: background 0.2s ease;
 
         &:hover {
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(255, 255, 255, 0.25);
         }
 
         .pi-times {
           color: white !important;
+          font-size: 1.2rem;
         }
       }
     }
@@ -307,25 +350,25 @@ const formatTime = (date: Date) => {
     .chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 1.5rem;
+      padding: 1.75rem;
       background: var(--neutral-50);
       scrollbar-width: thin;
       scrollbar-color: var(--primary) var(--neutral-100);
-      min-height: 100px; // Ensure container has height for scrolling
-      max-height: calc(80vh - 120px); // Adjust for header and input
+      min-height: 150px;
+      max-height: calc(85vh - 160px);
 
       &::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
 
       &::-webkit-scrollbar-track {
         background: var(--neutral-100);
-        border-radius: 4px;
+        border-radius: 3px;
       }
 
       &::-webkit-scrollbar-thumb {
         background: var(--primary);
-        border-radius: 4px;
+        border-radius: 3px;
       }
 
       &::-webkit-scrollbar-thumb:hover {
@@ -342,36 +385,45 @@ const formatTime = (date: Date) => {
         text-align: center;
 
         .empty-icon {
-          font-size: 2.5rem;
-          margin-bottom: 1rem;
+          width: 48px;
+          height: 48px;
           color: var(--primary);
+          margin-bottom: 1rem;
         }
 
         p {
           margin: 0;
           font-size: 1rem;
+          font-weight: 500;
         }
       }
 
       .message-bubble {
-        margin-bottom: 1.2rem;
+        margin-bottom: 1.5rem;
+        max-width: 85%;
         animation: slideIn 0.3s ease;
+        transition: transform 0.2s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+        }
 
         &.bot {
-          background: var(--primary-light);
-          margin-left: 20%;
-          border-radius: 12px 12px 12px 0;
+          background: white;
+          border: 1px solid var(--border-color);
+          border-radius: 16px 16px 16px 4px;
+          margin-right: 10%;
 
           .message-content {
-            color: var(--primary-dark);
+            color: var(--text-primary);
           }
         }
 
         &.user {
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+          border-radius: 16px 16px 4px 16px;
+          margin-left: auto;
           margin-right: 10%;
-          margin-left: 10%;
-          border-radius: 12px 12px 0 12px;
           color: white;
 
           .message-content {
@@ -380,32 +432,35 @@ const formatTime = (date: Date) => {
         }
 
         .message-content {
-          padding: 0.8rem 1rem;
+          padding: 0.9rem 1.2rem;
           border-radius: inherit;
           word-wrap: break-word;
+          font-size: 0.95rem;
+          line-height: 1.4;
         }
 
         .message-timestamp {
           display: block;
-          font-size: 0.7rem;
+          font-size: 0.75rem;
           color: var(--text-secondary);
-          margin-top: 0.4rem;
+          margin-top: 0.5rem;
           text-align: right;
+          opacity: 0.8;
         }
       }
 
       .typing-indicator {
         display: flex;
-        gap: 0.3rem;
-        padding: 0.8rem;
-        margin-left: 20%;
+        gap: 0.4rem;
+        padding: 0.9rem;
+        margin-right: 10%;
 
         span {
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           background: var(--primary);
           border-radius: 50%;
-          animation: typing 1.2s infinite;
+          animation: typing 1.4s infinite;
 
           &:nth-child(2) { animation-delay: 0.2s; }
           &:nth-child(3) { animation-delay: 0.4s; }
@@ -414,48 +469,57 @@ const formatTime = (date: Date) => {
     }
 
     .chat-input {
-      padding: 1rem;
+      padding: 1.25rem;
       border-top: 1px solid var(--border-color);
       display: flex;
-      gap: 0.8rem;
+      gap: 1rem;
       background: white;
       flex-shrink: 0;
 
       textarea {
         flex: 1;
-        padding: 0.8rem;
+        padding: 0.9rem;
         border: 1px solid var(--border-color);
-        border-radius: 8px;
+        border-radius: 10px;
         resize: none;
-        min-height: 48px;
-        font-size: 0.9rem;
+        min-height: 56px;
+        font-size: 0.95rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
         &:focus {
           outline: none;
           border-color: var(--primary);
-          box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+          box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.15);
         }
 
         &:disabled {
           background: var(--neutral-50);
+          cursor: not-allowed;
         }
       }
 
       .send-button {
-        padding: 0.8rem;
+        padding: 0.9rem;
         background: var(--primary);
-        border-radius: 8px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
+        transition: background 0.2s ease, transform 0.2s ease;
 
         &:hover {
           background: var(--primary-dark);
+          transform: translateY(-1px);
         }
 
         &:disabled {
           background: var(--neutral-200);
           cursor: not-allowed;
+          transform: none;
+        }
+
+        .pi-send {
+          font-size: 1.1rem;
         }
       }
     }
@@ -468,48 +532,69 @@ const formatTime = (date: Date) => {
 }
 
 @keyframes typing {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-6px); opacity: 1; }
 }
 
 .chat-slide-enter-active,
 .chat-slide-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
 }
 
 .chat-slide-enter-from,
 .chat-slide-leave-to {
-  transform: translateY(20px);
+  transform: translateY(30px);
   opacity: 0;
 }
 
-.icon-fade-enter-active,
-.icon-fade-leave-active {
-  transition: opacity 0.3s ease;
+.icon-scale-enter-active,
+.icon-scale-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-.icon-fade-enter-from,
-.icon-fade-leave-to {
+.icon-scale-enter-from,
+.icon-scale-leave-to {
+  transform: scale(0.8);
   opacity: 0;
 }
 
 @media (max-width: 480px) {
   .chatbot-container {
+    bottom: 16px;
+    right: 16px;
+
     .chat-interface {
       width: 100%;
       max-height: 100vh;
-      bottom: 0;
-      right: 0;
       border-radius: 0;
+      box-shadow: none;
+      border: none;
 
       .chat-messages {
-        max-height: calc(100vh - 120px); // Adjust for mobile
+        max-height: calc(100vh - 180px);
+      }
+
+      .chat-header {
+        border-radius: 0;
       }
     }
 
     .chat-icon {
-      bottom: 15px;
-      right: 15px;
+      width: 56px;
+      height: 56px;
+
+      i {
+        font-size: 1.8rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .chatbot-container {
+    .chat-interface {
+      width: 90vw;
+      max-width: 360px;
     }
   }
 }

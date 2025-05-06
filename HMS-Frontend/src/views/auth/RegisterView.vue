@@ -37,9 +37,7 @@
                   required
                 />
               </div>
-              <p v-if="errors.firstName" class="error-message">
-                {{ errors.firstName }}
-              </p>
+              <FormValidation :error="errors.firstName" field="firstName" />
             </div>
 
             <div class="form-group">
@@ -69,9 +67,7 @@
                   required
                 />
               </div>
-              <p v-if="errors.lastName" class="error-message">
-                {{ errors.lastName }}
-              </p>
+              <FormValidation :error="errors.lastName" field="lastName" />
             </div>
 
             <div class="form-group">
@@ -101,9 +97,7 @@
                   required
                 />
               </div>
-              <p v-if="errors.email" class="error-message">
-                {{ errors.email }}
-              </p>
+              <FormValidation :error="errors.email" field="email" />
             </div>
 
             <div class="form-group">
@@ -167,9 +161,7 @@
                   </svg>
                 </button>
               </div>
-              <p v-if="errors.password" class="error-message">
-                {{ errors.password }}
-              </p>
+              <FormValidation :error="errors.password" field="password" />
             </div>
 
             <div class="form-group">
@@ -228,6 +220,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import FormValidation from '@/components/form/FormValidation.vue';
 import { useAuthStore } from '../../stores/auth';
 import { useToast } from 'primevue/usetoast';
 
