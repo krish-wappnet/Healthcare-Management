@@ -305,7 +305,7 @@ const deviceStats = computed(() => {
 
 // Methods
 const bookNewAppointment = () => {
-  displayAppointmentModal.value = true;
+  router.push('/patient/book-appointment');
   fetchDoctors();
 };
 
@@ -351,9 +351,12 @@ const formatTime = (timeString: string) => {
 
 const fetchDoctors = async () => {
   try {
-    const response = await fetch('http://localhost:3000/doctors?page=1&limit=100');
-    const data = await response.json();
-    doctors.value = data.data.map(doctor => ({
+    const response = await appointmentService.getAll({
+      page: 1,
+      limit: 100,
+      patientId: patientId.value
+    });
+    doctors.value = response.data.map(doctor => ({
       id: doctor._id,
       label: `${doctor.user.firstName} ${doctor.user.lastName} - ${doctor.specialization}`,
       value: doctor._id,
@@ -744,12 +747,13 @@ onMounted(async () => {
     <div class="dashboard-header">
       <h1 class="dashboard-title">Patient Dashboard</h1>
       <div class="profile-icon-container">
-        <Button
-          icon="pi pi-user"
-          class="p-button-rounded p-button-text profile-icon"
+        <button
+          class="profile-icon"
           @click="router.push('/patient/profile')"
           aria-label="View Profile"
-        />
+        >
+          <i class="pi pi-user"></i>
+        </button>
       </div>
     </div>
 
@@ -761,20 +765,24 @@ onMounted(async () => {
           <h2>Welcome back, {{ authStore.user?.firstName || 'Patient' }}</h2>
           <p>Here's a summary of your health data and upcoming appointments</p>
           <div class="button-group">
-            <Button 
-              v-if="healthDeviceData.length === 0"
-              label="Add Device" 
-              icon="pi pi-plus" 
-              class="p-button-success"
-              @click="displayHealthDeviceModal = true"
-            />
-            <Button 
-              v-if="healthDeviceData.length > 0"
-              label="Simulate"
-              icon="pi pi-play"
-              class="p-button-success"
-              @click="simulateHealthDevice"
-            />
+            <div class="button-group">
+              <button
+                v-if="healthDeviceData.length === 0"
+                class="button primary"
+                @click="displayHealthDeviceModal = true"
+              >
+                <i class="pi pi-plus"></i>
+                Add Device
+              </button>
+              <button
+                v-if="healthDeviceData.length > 0"
+                class="button primary"
+                @click="simulateHealthDevice"
+              >
+                <i class="pi pi-play"></i>
+                Simulate
+              </button>
+            </div>
           </div>
         </div>
 
@@ -784,12 +792,13 @@ onMounted(async () => {
             <p>Your next appointment with Dr. {{ upcomingAppointment.doctor.name }} is on</p>
             <strong>{{ formatDate(upcomingAppointment.date) }} at {{ formatTime(upcomingAppointment.startTime) }}</strong>
           </div>
-          <Button
-            label="View Details"
-            icon="pi pi-arrow-right"
-            text
+          <button
+            class="button text"
             @click="$router.push(`/patient/appointments?id=${upcomingAppointment.id}`)"
-          />
+          >
+            View Details
+            <i class="pi pi-arrow-right"></i>
+          </button>
         </div>
 
         <div v-else class="appointment-alert no-appointment">
@@ -798,11 +807,13 @@ onMounted(async () => {
             <p>You don't have any upcoming appointments</p>
             <strong>Schedule a check-up with your doctor</strong>
           </div>
-          <Button
-            label="Book Now"
-            icon="pi pi-calendar-plus"
+          <button
+            class="button book-now"
             @click="bookNewAppointment"
-          />
+          >
+            <i class="pi pi-calendar-plus"></i>
+            Book Now
+          </button>
         </div>
       </div>
 
@@ -879,13 +890,13 @@ onMounted(async () => {
             <template #header>
               <div class="card-header">
                 <h2>Heart Rate Monitoring</h2>
-                <Button
-                  icon="pi pi-ellipsis-h"
-                  rounded
-                  text
-                  aria-label="More options"
+                <button
+                  class="button icon-button"
                   @click="$router.push('/patient/health?type=heart-rate')"
-                />
+                  aria-label="More options"
+                >
+                  <i class="pi pi-ellipsis-h"></i>
+                </button>
               </div>
             </template>
 
@@ -1177,24 +1188,27 @@ onMounted(async () => {
         </div>
 
         <div class="form-actions">
-          <Button
-            label="Reset Form"
-            icon="pi pi-refresh"
-            class="p-button-text p-button-warning"
+          <button
+            class="button text warning"
             @click="resetForm"
-          />
-          <Button
-            label="Cancel"
-            icon="pi pi-times"
-            class="p-button-text"
+          >
+            <i class="pi pi-refresh"></i>
+            Reset Form
+          </button>
+          <button
+            class="button text"
             @click="displayAppointmentModal = false"
-          />
-          <Button
-            label="Book Appointment"
-            icon="pi pi-check"
-            class="p-button-success"
+          >
+            <i class="pi pi-times"></i>
+            Cancel
+          </button>
+          <button
+            class="button primary"
             @click="submitAppointment"
-          />
+          >
+            <i class="pi pi-check"></i>
+            Book Appointment
+          </button>
         </div>
       </form>
     </Dialog>
@@ -1312,5 +1326,5 @@ onMounted(async () => {
 </template>
 
 <style lang="scss">
-@import '../../styles/PatientDashboard.scss';
+@use '../../styles/PatientDashboard.scss' as *;
 </style>

@@ -1,7 +1,6 @@
 <template>
   <div class="admin-dashboard">
     <Toast />
-    <h1 class="dashboard-title">Admin Dashboard</h1>
     <div class="dashboard-content">
       <!-- Role Filter Tabs -->
       <div class="role-tabs">
@@ -406,7 +405,6 @@ onMounted(() => {
 }
 
 .admin-dashboard {
-  padding: 2rem;
   background: var(--background);
   min-height: 100vh;
 

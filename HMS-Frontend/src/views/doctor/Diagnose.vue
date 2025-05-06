@@ -737,8 +737,32 @@ const submitDiagnosis = async () => {
       error.value = 'Please select an appointment';
       return;
     }
-    
-    const response = await axios.post('http://localhost:3000/diagnosis', form, {
+
+    // Find the selected appointment to get patient and doctor IDs
+    const selectedAppointment = appointments.value.find(app => app._id === form.appointmentId);
+    if (!selectedAppointment) {
+      error.value = 'Selected appointment not found';
+      return;
+    }
+
+    // Create diagnosis payload with correct MongoDB IDs
+    const diagnosisData = {
+      patient: selectedAppointment.patient._id,  // Use patient's MongoDB ID
+      doctor: selectedAppointment.doctor._id,    // Use doctor's MongoDB ID
+      symptoms: form.symptoms,
+      medicalHistory: form.medicalHistory,
+      allergies: form.allergies,
+      currentMedications: form.currentMedications,
+      diagnosisResult: form.diagnosisResult,
+      confidence: form.confidence,
+      possibleConditions: form.possibleConditions,
+      recommendedTests: form.recommendedTests,
+      recommendedSpecialists: form.recommendedSpecialists,
+      treatmentSuggestions: form.treatmentSuggestions,
+      notes: form.notes
+    };
+
+    const response = await axios.post('http://localhost:3000/diagnosis', diagnosisData, {
       headers: {
         Authorization: `Bearer ${authStore.token}`
       }
@@ -779,11 +803,20 @@ const toggleExpand = (id) => {
 </script>
 
 <style lang="scss" scoped>
+:root {
+  --primary: #3b82f6;
+  --primary-light: #dbedff;
+  --text-primary: #1f2a44;
+  --text-secondary: #6b7280;
+  --background: #ffffff;
+  --surface-card: #f9fafb;
+  --border-color: #e5e7eb;
+}
+
 .diagnosis-page {
   padding: 2rem;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
-  min-height: 100vh;
-  font-family: 'Inter', sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {

@@ -5,6 +5,118 @@
   font-family: 'Inter', sans-serif;
 }
 
+/* Custom Button Styles */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  margin-top: 0.75rem;
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  &.primary {
+    background: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+
+    &:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    &:active {
+      transform: translateY(0);
+      background: #1d4ed8;
+    }
+  }
+
+  &.text {
+    background: transparent;
+    color: #3b82f6;
+    padding: 0.5rem 1rem;
+
+    &:hover {
+      background: rgba(59, 130, 246, 0.1);
+    }
+
+    &.warning {
+      color: #f59e0b;
+
+      &:hover {
+        background: rgba(245, 158, 11, 0.1);
+      }
+    }
+  }
+
+  &.icon-button {
+    padding: 0.5rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+
+    &:hover {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+      transform: scale(1.1);
+    }
+
+    &:active {
+      background: #e5e7eb;
+    }
+  }
+
+  &.book-now {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    padding: 1rem 2rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    margin-top: 1rem;
+
+    &:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    &:active {
+      transform: translateY(0);
+      background: linear-gradient(135deg, #1d4ed8 0%, #1540c0 100%);
+    }
+
+    i {
+      font-size: 1.1rem;
+      margin-right: 0.75rem;
+    }
+  }
+
+  i {
+    font-size: 1rem;
+    line-height: 1;
+  }
+}
+
 /* Modal Styling */
 .appointment-modal,
 .health-device-modal {
@@ -168,42 +280,51 @@
 }
 
 :deep(.p-button) {
-  background: #3b82f6;
-  color: #ffffff;
+  height: 40px;
+  font-weight: 600;
   border-radius: 8px;
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
   transition: all 0.2s ease;
   border: none;
-}
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+  cursor: pointer;
+  white-space: nowrap;
 
-:deep(.p-button:hover) {
-  background: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-}
+  &.primary {
+    background: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 
-:deep(.p-button.p-button-text) {
-  color: #3b82f6;
-  background: transparent;
-  padding: 0.5rem 1rem;
-}
+    &:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
 
-:deep(.p-button.p-button-text:hover) {
-  background: rgba(59, 130, 246, 0.1);
-}
+    &:active {
+      transform: translateY(0);
+      background: #1d4ed8;
+    }
+  }
 
-:deep(.p-button.p-button-warning) {
-  background: #f59e0b;
-  color: #ffffff;
-}
+  &.secondary {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
 
-:deep(.p-button.p-button-warning:hover) {
-  background: #d97706;
-}
+    &:hover {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+    }
 
-:deep(.p-button.p-button-danger) {
-  background: #ef4444;
+    &:active {
+      background: #e5e7eb;
+    }
+  }
   color: #ffffff;
 }
 
