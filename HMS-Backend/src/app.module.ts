@@ -12,6 +12,7 @@ import { HealthDevicesModule } from './health-devices/health-devices.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { ChatbotModule } from './chatbot/chatbot.module';
     HealthDevicesModule,
     NotificationsModule,
     DiagnosisModule,
-    ChatbotModule
+    ChatbotModule,
+    MailModule
   ],
 })
 export class AppModule {}

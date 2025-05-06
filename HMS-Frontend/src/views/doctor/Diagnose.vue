@@ -57,7 +57,7 @@
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 ①7-7-7" />
               </svg>
             </button>
           </div>
@@ -214,28 +214,49 @@
               <p v-else class="no-appointment">No appointment selected</p>
             </div>
             <!-- Symptoms -->
-            <div class="form-group full-width">
-              <label>Symptoms</label>
-              <div class="chips-input">
-                <input
-                  v-model="newSymptom"
-                  type="text"
-                  @keyup.enter="addSymptom"
-                  placeholder="Add symptom"
-                />
-                <div class="chips">
-                  <span
-                    v-for="(symptom, index) in form.symptoms"
-                    :key="index"
-                    class="chip"
-                  >
-                    {{ symptom }}
-                    <button @click="removeSymptom(index)" class="chip-remove">
-                      <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </span>
+            <div class="form-section">
+              <h3 class="section-title">Symptoms</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Add Symptoms</label>
+                  <div class="symptoms-input">
+                    <div class="symptoms-list">
+                      <div
+                        v-for="(symptom, index) in form.symptoms"
+                        :key="index"
+                        class="symptom-item"
+                      >
+                        <input
+                          v-model="form.symptoms[index]"
+                          type="text"
+                          placeholder="Enter symptom"
+                          class="symptom-input"
+                        />
+                        <button
+                          @click="removeSymptom(index)"
+                          class="remove-symptom"
+                        >
+                          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="symptom-actions">
+                      <button @click="addSymptomInput" class="add-symptom-btn">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Symptom
+                      </button>
+                      <button @click="removeSymptomInput" class="remove-symptom-btn" v-if="form.symptoms.length > 1">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Remove Last
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -527,6 +548,26 @@ const newTreatment = ref('');
 // Track appointment details
 const formattedAppointment = ref(null);
 
+// Initialize symptoms array with one empty input
+if (!form.symptoms.length) {
+  form.symptoms = [''];
+}
+
+// Functions for symptom management
+const addSymptomInput = () => {
+  form.symptoms.push('');
+};
+
+const removeSymptomInput = () => {
+  if (form.symptoms.length > 1) {
+    form.symptoms.pop();
+  }
+};
+
+const removeSymptom = (index) => {
+  form.symptoms.splice(index, 1);
+};
+
 // Function to handle appointment selection
 const handleAppointmentSelection = (appointment) => {
   if (!appointment) {
@@ -624,19 +665,11 @@ const addSymptom = () => {
   }
 };
 
-const removeSymptom = (index) => {
-  form.symptoms.splice(index, 1);
-};
-
 const addMedicalHistory = () => {
   if (newMedicalHistory.value.trim()) {
     form.medicalHistory.push(newMedicalHistory.value.trim());
     newMedicalHistory.value = '';
   }
-};
-
-const removeMedicalHistory = (index) => {
-  form.medicalHistory.splice(index, 1);
 };
 
 const addAllergy = () => {
@@ -646,19 +679,11 @@ const addAllergy = () => {
   }
 };
 
-const removeAllergy = (index) => {
-  form.allergies.splice(index, 1);
-};
-
 const addMedication = () => {
   if (newMedication.value.trim()) {
     form.currentMedications.push(newMedication.value.trim());
     newMedication.value = '';
   }
-};
-
-const removeMedication = (index) => {
-  form.currentMedications.splice(index, 1);
 };
 
 const addTest = () => {
@@ -668,10 +693,6 @@ const addTest = () => {
   }
 };
 
-const removeTest = (index) => {
-  form.recommendedTests.splice(index, 1);
-};
-
 const addSpecialist = () => {
   if (newSpecialist.value.trim()) {
     form.recommendedSpecialists.push(newSpecialist.value.trim());
@@ -679,19 +700,11 @@ const addSpecialist = () => {
   }
 };
 
-const removeSpecialist = (index) => {
-  form.recommendedSpecialists.splice(index, 1);
-};
-
 const addTreatment = () => {
   if (newTreatment.value.trim()) {
     form.treatmentSuggestions.push(newTreatment.value.trim());
     newTreatment.value = '';
   }
-};
-
-const removeTreatment = (index) => {
-  form.treatmentSuggestions.splice(index, 1);
 };
 
 const addCondition = () => {
@@ -804,19 +817,24 @@ const toggleExpand = (id) => {
 
 <style lang="scss" scoped>
 :root {
-  --primary: #3b82f6;
-  --primary-light: #dbedff;
-  --text-primary: #1f2a44;
-  --text-secondary: #6b7280;
-  --background: #ffffff;
-  --surface-card: #f9fafb;
-  --border-color: #e5e7eb;
+  --primary:rgb(228, 228, 228);
+  --primary-dark:rgb(199, 199, 199);
+  --primary-light:rgb(255, 255, 255);
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --background: #f8fafc;
+  --surface-card: #ffffff;
+  --border-color: #e2e8f0;
+  --error: #ef4444;
+  --warning: #f59e0b;
 }
 
 .diagnosis-page {
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
+  background: var(--background);
+  min-height: 100vh;
 }
 
 .header {
@@ -825,29 +843,30 @@ const toggleExpand = (id) => {
   align-items: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
 
   h1 {
-    font-size: 1.875rem;
+    font-size: 2rem;
     font-weight: 700;
-    color: #1f2a44;
+    color: var(--text-primary);
   }
 }
 
 .create-button {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--primary);
+  color: white;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    background: #2563eb;
-    transform: translateY(-1px);
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .icon {
@@ -857,10 +876,11 @@ const toggleExpand = (id) => {
 }
 
 .doctor-profile {
-  padding: 2rem;
-  background: #f8f9fa;
+  padding: 1.5rem;
+  background: var(--surface-card);
   border-radius: 12px;
   margin-bottom: 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 
   .profile-info {
     display: flex;
@@ -871,11 +891,13 @@ const toggleExpand = (id) => {
       h2 {
         margin: 0 0 0.5rem 0;
         font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
       }
 
       p {
         margin: 0.25rem 0;
-        color: #6c757d;
+        color: var(--text-secondary);
       }
     }
   }
@@ -884,7 +906,7 @@ const toggleExpand = (id) => {
 .profile-name {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2a44;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
@@ -896,7 +918,7 @@ const toggleExpand = (id) => {
   .specialization {
     font-size: 1rem;
     font-weight: 500;
-    color: #1f2a44;
+    color: var(--text-primary);
   }
 
   .info-grid {
@@ -906,10 +928,11 @@ const toggleExpand = (id) => {
 
     p {
       margin: 0.25rem 0;
-      color: #6c757d;
+      color: var(--text-secondary);
 
       span {
         font-weight: 500;
+        color: var(--text-primary);
       }
     }
   }
@@ -921,15 +944,15 @@ const toggleExpand = (id) => {
 }
 
 .diagnosis-card {
-  background: #ffffff;
+  background: var(--surface-card);
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   padding: 1.5rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -941,13 +964,13 @@ const toggleExpand = (id) => {
   h2 {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #1f2a44;
+    color: var(--text-primary);
     margin: 0;
   }
 
   p {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--text-secondary);
     margin: 0.25rem 0 0;
   }
 }
@@ -955,23 +978,23 @@ const toggleExpand = (id) => {
 .details-button {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--primary);
   font-size: 0.875rem;
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.3s ease;
 
   &:hover {
-    color: #2563eb;
+    color: var(--primary-dark);
   }
 
   .icon {
     width: 1.25rem;
     height: 1.25rem;
-    transition: transform 0.2s ease;
+    transition: transform 0.3s ease;
   }
 
   .rotate {
@@ -987,13 +1010,13 @@ const toggleExpand = (id) => {
   h3 {
     font-size: 1rem;
     font-weight: 600;
-    color: #1f2a44;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
   }
 
   p {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--text-secondary);
     margin: 0;
   }
 
@@ -1002,7 +1025,7 @@ const toggleExpand = (id) => {
     padding-left: 1.5rem;
     margin: 0;
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--text-secondary);
   }
 }
 
@@ -1017,7 +1040,7 @@ const toggleExpand = (id) => {
 }
 
 .sub-card {
-  background: #f9fafb;
+  background: var(--primary-light);
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 0.5rem;
@@ -1027,7 +1050,7 @@ const toggleExpand = (id) => {
     margin: 0.25rem 0;
 
     strong {
-      color: #1f2a44;
+      color: var(--text-primary);
     }
   }
 }
@@ -1041,7 +1064,7 @@ const toggleExpand = (id) => {
 .no-data {
   text-align: center;
   padding: 3rem 0;
-  color: #6b7280;
+  color: var(--text-secondary);
 
   p {
     font-size: 1.125rem;
@@ -1052,37 +1075,49 @@ const toggleExpand = (id) => {
 .link-button {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--primary);
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   text-decoration: underline;
-  transition: color 0.2s ease;
+  transition: color 0.3s ease;
 
   &:hover {
-    color: #2563eb;
+    color: var(--primary-dark);
   }
 }
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal {
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  background: var(--surface-card);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
   width: 90%;
-  max-width: 800px;
+  max-width: 900px;
   max-height: 90vh;
   overflow-y: auto;
   padding: 2rem;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .modal-header {
@@ -1091,24 +1126,25 @@ const toggleExpand = (id) => {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
 
   h2 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #1f2a44;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
   }
 }
 
 .close-button {
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.3s ease, transform 0.2s ease;
 
   &:hover {
-    color: #3b82f6;
+    color: var(--primary);
+    transform: scale(1.1);
   }
 
   .icon {
@@ -1124,7 +1160,7 @@ const toggleExpand = (id) => {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
 }
 
@@ -1140,38 +1176,53 @@ const toggleExpand = (id) => {
   label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
   }
 
-  input,
-  textarea {
+  input, textarea, select {
     padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     font-size: 0.875rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    background: var(--background);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 
     &:focus {
-      border-color: #3b82f6;
+      border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       outline: none;
     }
 
     &.error {
-      border-color: #ef4444;
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+
+    &[readonly] {
+      background: var(--primary-light);
+      cursor: not-allowed;
     }
   }
 
   textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 100px;
+  }
+
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
   }
 }
 
 .chips-input {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 
   input {
     width: 100%;
@@ -1185,77 +1236,207 @@ const toggleExpand = (id) => {
 }
 
 .chip {
-  background: #3b82f6;
-  color: #ffffff;
-  padding: 0.25rem 0.75rem;
-  border-radius: 16px;
+  background: var(--primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
   font-size: 0.875rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  transition: background 0.3s ease, transform 0.2s ease;
+
+  &:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+  }
 }
 
 .chip-remove {
   background: none;
   border: none;
-  color: #ffffff;
-  font-size: 1rem;
+  color: white;
   cursor: pointer;
+  transition: color 0.3s ease;
+
+  &:hover {
+    color: #e0f2fe;
+  }
+
+  .icon {
+    width: 1rem;
+    height: 1rem;
+  }
 }
 
-.sub-form {
-  background: #f9fafb;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
-}
-
-.sub-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+.possible-conditions {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 
-.vitals-form-grid {
+.condition-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr 100px 1fr 40px;
+  gap: 0.75rem;
+  align-items: center;
+
+  input, textarea {
+    margin-bottom: 0;
+  }
+
+  textarea {
+    min-height: 60px;
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-.add-button,
-.remove-button {
-  background: #3b82f6;
-  color: #ffffff;
-  padding: 0.5rem 1rem;
+.add-condition,
+.remove.add-condition {
+  align-items: center;
+  padding: 0.375rem 0.75rem;
   border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: background 0.2s ease;
+  background: var(--primary);
+  color: white;
+  transition: all 0.3s ease;
 
   &:hover {
-    background: #2563eb;
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+  }
+
+  .icon {
+    width: 1rem;
+    height: 1rem;
   }
 }
 
-.remove-button {
-  background: #ef4444;
+.remove-condition {
+  background: var(--error);
+  color: white;
 
   &:hover {
     background: #dc2626;
+    transform: translateY(-2px);
+  }
+
+  .icon {
+    width: 1rem;
+    height: 1rem;
   }
 }
 
-.error-text {
-  color: #ef4444;
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
+.symptoms-input {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  .symptoms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .symptom-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .symptom-input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: var(--background);
+      color: var(--text-primary);
+      width: 100%;
+
+      &:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      }
+    }
+
+    .remove-symptom {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0.5rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+
+      &:hover {
+        color: var(--error);
+        transform: scale(1.1);
+      }
+
+      .icon {
+        width: 1rem;
+        height: 1rem;
+      }
+    }
+  }
+
+  .symptom-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: flex-end;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      .icon {
+        width: 1rem;
+        height: 1rem;
+      }
+    }
+
+    .add-symptom-btn {
+      background: var(--primary);
+      color: white;
+
+      &:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+      }
+    }
+
+    .remove-symptom-btn {
+      background: var(--error);
+      color: white;
+
+      &:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+      }
+    }
+  }
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  margin-top: 1.5rem;
+  margin-top: 2rem;
 }
 
 .submit-button,
@@ -1265,86 +1446,75 @@ const toggleExpand = (id) => {
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .submit-button {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--primary);
+  color: white;
 
   &:hover {
-    background: #2563eb;
-    transform: translateY(-1px);
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 }
 
 .cancel-button {
-  background: #e5e7eb;
-  color: #1f2a44;
+  background: var(--border-color);
+  color: var(--text-primary);
 
   &:hover {
     background: #d1d5db;
+    transform: translateY(-2px);
   }
 }
 
 .reset-button {
-  background: #f59e0b;
-  color: #ffffff;
+  background: var(--warning);
+  color: white;
 
   &:hover {
     background: #d97706;
-  }
-}
-
-.appointment-select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background-color: #fff;
-  color: #333;
-  font-size: 1rem;
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 }
 
 .appointment-details {
-  background: #f8f9fa;
+  background: var(--primary-light);
   padding: 1rem;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-top: 0.5rem;
 
-  p {
-    margin: 0.25rem 0;
-    color: #333;
+  .appointment-info {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .info-item {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
 
     strong {
-      color: #1a56db;
+      color: var(--text-primary);
+      margin-right: 0.5rem;
     }
   }
 
   .meeting-link {
-    margin-top: 0.5rem;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
 
-    a {
-      color: #1a56db;
-      text-decoration: none;
-      font-weight: 500;
-
-      &:hover {
-        text-decoration: underline;
-      }
+    &:hover {
+      text-decoration: underline;
     }
   }
 }
 
 .no-appointment {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-style: italic;
   margin-top: 0.5rem;
 }
@@ -1356,6 +1526,11 @@ const toggleExpand = (id) => {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal {
+    width: 95%;
+    padding: 1.5rem;
   }
 }
 </style>

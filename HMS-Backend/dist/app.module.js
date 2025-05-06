@@ -20,6 +20,7 @@ const health_devices_module_1 = require("./health-devices/health-devices.module"
 const notifications_module_1 = require("./notifications/notifications.module");
 const diagnosis_module_1 = require("./diagnosis/diagnosis.module");
 const chatbot_module_1 = require("./chatbot/chatbot.module");
+const mail_module_1 = require("./mail/mail.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -45,7 +46,8 @@ exports.AppModule = AppModule = __decorate([
             health_devices_module_1.HealthDevicesModule,
             notifications_module_1.NotificationsModule,
             diagnosis_module_1.DiagnosisModule,
-            chatbot_module_1.ChatbotModule
+            chatbot_module_1.ChatbotModule,
+            mail_module_1.MailModule
         ],
     })
 ], AppModule);

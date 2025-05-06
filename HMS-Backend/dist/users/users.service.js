@@ -58,6 +58,9 @@ let UsersService = class UsersService {
         };
     }
     async findOne(id) {
+        if (typeof id === 'string') {
+            id = new mongoose_2.Types.ObjectId(id);
+        }
         const user = await this.userModel.findById(id).exec();
         console.log('findByEmail - Found user:', user);
         if (!user) {

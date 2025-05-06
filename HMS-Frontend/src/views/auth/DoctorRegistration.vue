@@ -81,7 +81,7 @@
   
               <!-- Qualifications -->
               <div class="form-group full-width">
-                <label for="qualifications" class="form-label">Qualifications (comma-separated)</label>
+                <label for="qualifications" class="form-label">Qualifications</label>
                 <div class="input-container">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -99,13 +99,30 @@
                   </svg>
                   <input
                     id="qualifications"
-                    v-model="qualificationsInput"
+                    v-model="qualificationInput"
                     type="text"
-                    placeholder="e.g., MD, PhD, Board Certified"
+                    placeholder="Add qualification and press Enter (e.g., MD)"
                     class="form-input"
                     :class="{ 'input-error': errors.qualifications }"
                     @focus="clearError('qualifications')"
+                    @keyup.enter="addQualification"
                   />
+                </div>
+                <div class="chips-container" v-if="form.qualifications.length">
+                  <span
+                    v-for="(qual, index) in form.qualifications"
+                    :key="index"
+                    class="chip"
+                  >
+                    {{ qual }}
+                    <button
+                      type="button"
+                      class="chip-remove"
+                      @click="removeQualification(index)"
+                    >
+                      ×
+                    </button>
+                  </span>
                 </div>
                 <p v-if="errors.qualifications" class="error-message">
                   {{ errors.qualifications }}
@@ -274,6 +291,80 @@
                 </p>
               </div>
   
+              <!-- Working Hours -->
+              <div class="form-group full-width">
+                <label class="form-label">Working Hours</label>
+                <div class="working-hours-grid">
+                  <div v-for="day in days" :key="day" class="working-hours-day">
+                    <div class="working-hours-header">
+                      <label class="form-label">{{ day }}</label>
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          v-model="form.workingHours[day].isAvailable"
+                          @change="clearError('workingHours')"
+                        />
+                        <span class="slider round"></span>
+                      </label>
+                    </div>
+                    <div class="time-input-container" :class="{ 'disabled': !form.workingHours[day].isAvailable }">
+                      <div class="input-container">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="input-icon"
+                        >
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M12 6v6l4 2"></path>
+                        </svg>
+                        <input
+                          :id="`startTime-${day}`"
+                          v-model="form.workingHours[day].start"
+                          type="time"
+                          class="form-input time-input"
+                          :class="{ 'input-error': errors.workingHours && form.workingHours[day].isAvailable && !form.workingHours[day].start }"
+                          @focus="clearError('workingHours')"
+                          :disabled="!form.workingHours[day].isAvailable"
+                        />
+                      </div>
+                      <span class="time-divider">to</span>
+                      <div class="input-container">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="input-icon"
+                        >
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M12 6v6l4 2"></path>
+                        </svg>
+                        <input
+                          :id="`endTime-${day}`"
+                          v-model="form.workingHours[day].end"
+                          type="time"
+                          class="form-input time-input"
+                          :class="{ 'input-error': errors.workingHours && form.workingHours[day].isAvailable && !form.workingHours[day].end }"
+                          @focus="clearError('workingHours')"
+                          :disabled="!form.workingHours[day].isAvailable"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p v-if="errors.workingHours" class="error-message">
+                  {{ errors.workingHours }}
+                </p>
+              </div>
+  
               <!-- Bio -->
               <div class="form-group full-width">
                 <label for="bio" class="form-label">Bio</label>
@@ -323,15 +414,15 @@
       <p>Checking authentication...</p>
       <div class="spinner"></div>
     </div>
-  </template>
+</template>
   
-  <script setup lang="ts">
+<script setup lang="ts">
 import { reactive, ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
-import { jwtDecode } from 'jwt-decode'; // Import jwt-decode
+import { jwtDecode } from 'jwt-decode';
 
 interface JwtPayload {
   sub: string;
@@ -347,6 +438,8 @@ const toast = useToast();
 
 const isAuthenticated = computed(() => authStore.isAuthenticated && !!authStore.token);
 
+const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
 const form = reactive({
   user: '',
   specialization: '',
@@ -358,7 +451,10 @@ const form = reactive({
   officePhone: '' as string | undefined,
   consultationFee: undefined as number | undefined,
   isAvailableForAppointments: true,
-  workingHours: {} as Record<string, any>,
+  workingHours: days.reduce((acc, day) => ({
+    ...acc,
+    [day]: { start: '', end: '', isAvailable: false }
+  }), {} as Record<string, { start: string; end: string; isAvailable: boolean }>),
 });
 
 const errors = reactive({
@@ -375,17 +471,15 @@ const errors = reactive({
   workingHours: '',
 });
 
-const qualificationsInput = ref('');
+const qualificationInput = ref('');
 const isLoading = ref(false);
 
-// Check authentication and populate user ID from token
 onMounted(async () => {
   console.log('onMounted: Checking authentication');
   console.log('authStore.isAuthenticated:', authStore.isAuthenticated);
   console.log('authStore.user:', authStore.user);
   console.log('authStore.token:', authStore.token);
 
-  // Attempt to refresh auth if token exists
   if (authStore.token && !authStore.user) {
     console.log('Attempting to refresh auth with checkAuth');
     const authSuccess = await authStore.checkAuth();
@@ -398,7 +492,6 @@ onMounted(async () => {
     router.push('/login');
   } else {
     try {
-      // Decode the JWT token to extract the sub field
       const decoded = jwtDecode<JwtPayload>(authStore.token);
       form.user = decoded.sub;
       console.log('Set form.user from token sub:', form.user);
@@ -419,6 +512,24 @@ const clearError = (field: keyof typeof errors) => {
   errors[field] = '';
 };
 
+const addQualification = () => {
+  const qual = qualificationInput.value.trim();
+  if (qual && !form.qualifications.includes(qual)) {
+    form.qualifications.push(qual);
+    qualificationInput.value = '';
+    clearError('qualifications');
+  } else if (!qual) {
+    errors.qualifications = 'Please enter a valid qualification';
+  } else {
+    errors.qualifications = 'This qualification is already added';
+  }
+};
+
+const removeQualification = (index: number) => {
+  form.qualifications.splice(index, 1);
+  clearError('qualifications');
+};
+
 const validateForm = () => {
   console.log('Validating form');
   let isValid = true;
@@ -435,6 +546,11 @@ const validateForm = () => {
 
   if (!form.licenseNumber?.trim()) {
     errors.licenseNumber = 'License number is required';
+    isValid = false;
+  }
+
+  if (form.qualifications.length === 0) {
+    errors.qualifications = 'At least one qualification is required';
     isValid = false;
   }
 
@@ -458,6 +574,30 @@ const validateForm = () => {
     isValid = false;
   }
 
+  let hasWorkingHours = false;
+  for (const day of days) {
+    const { start, end, isAvailable } = form.workingHours[day];
+    if (isAvailable) {
+      if (start && end) {
+        hasWorkingHours = true;
+        const startTime = new Date(`1970-01-01T${start}:00`);
+        const endTime = new Date(`1970-01-01T${end}:00`);
+        if (startTime >= endTime) {
+          errors.workingHours = `End time must be after start time for ${day}`;
+          isValid = false;
+        }
+      } else {
+        errors.workingHours = `Both start and end times are required for ${day} when available`;
+        isValid = false;
+      }
+    }
+  }
+
+  if (!hasWorkingHours) {
+    errors.workingHours = 'At least one day with working hours is required';
+    isValid = false;
+  }
+
   console.log('Validation errors:', errors);
   console.log('isValid:', isValid);
   return isValid;
@@ -468,67 +608,72 @@ const handleDoctorRegistration = async () => {
   console.log('Form data:', form);
   console.log('isLoading:', isLoading.value);
 
-  if (!validateForm()) {
-    console.log('Validation failed, exiting');
-    toast.add({
-      severity: 'error',
-      summary: 'Validation Error',
-      detail: 'Please fill out all required fields correctly',
-      life: 5000,
-    });
-    return;
-  }
-
-  isLoading.value = true;
+  console.log('Form is valid. Submitting...');
   console.log('Set isLoading to true');
 
   try {
-    // Convert qualifications input to array
-    form.qualifications = qualificationsInput.value
-      .split(',')
-      .map((q) => q.trim())
-      .filter((q) => q);
-    console.log('Processed qualifications:', form.qualifications);
+    const formattedWorkingHours = days.reduce((acc, day) => ({
+      ...acc,
+      [day]: {
+        start: form.workingHours[day].start || '',
+        end: form.workingHours[day].end || '',
+        isAvailable: form.workingHours[day].isAvailable,
+      }
+    }), {} as Record<string, { start: string; end: string; isAvailable: boolean }>);
 
-    // Construct payload matching the backend's expected format
     const payload = {
       user: form.user,
       specialization: form.specialization,
       licenseNumber: form.licenseNumber,
-      qualifications: form.qualifications.length ? form.qualifications : [],
+      qualifications: form.qualifications,
       experience: form.experience,
-      bio: form.bio || '',
+      consultationFee: form.consultationFee,
       officeAddress: form.officeAddress,
       officePhone: form.officePhone,
-      consultationFee: form.consultationFee,
       isAvailableForAppointments: form.isAvailableForAppointments,
-      workingHours: form.workingHours,
+      workingHours: formattedWorkingHours,
     };
-    console.log('Sending payload to API:', payload);
 
-    // Make POST request to the API
-    const response = await axios.post('http://localhost:3000/doctors', payload, {
-      headers: {
-        Authorization: `Bearer ${authStore.token}`,
-        'Content-Type': 'application/json',
-      },
+    console.log('Sending payload:', payload);
+
+    const response = await axios.post('http://localhost:3000/doctors', payload);
+    console.log('Response:', response.data);
+
+    // Reset form
+    form.user = '';
+    form.specialization = '';
+    form.licenseNumber = '';
+    form.qualifications = [];
+    form.experience = 0;
+    form.consultationFee = 0;
+    form.officeAddress = '';
+    form.officePhone = '';
+    form.isAvailableForAppointments = true;
+    days.forEach(day => {
+      form.workingHours[day].start = '';
+      form.workingHours[day].end = '';
+      form.workingHours[day].isAvailable = false;
     });
 
-    console.log('API response:', response.data);
+    // Clear errors
+    Object.keys(errors).forEach(key => {
+      errors[key] = '';
+    });
+
+    // Reset qualification input
+    qualificationInput.value = '';
+
+    // Show success message
     toast.add({
       severity: 'success',
-      summary: 'Doctor Registration Successful',
-      detail: 'Your doctor profile has been created successfully!',
+      summary: 'Success',
+      detail: 'Doctor registration completed successfully',
       life: 5000,
     });
 
-    // Refresh authStore to update user role
-    await authStore.checkAuth();
+    // Redirect to doctor profile
+    router.push('/doctor/profile');
 
-    const redirectPath = await authStore.redirectBasedOnRole();
-    console.log('Redirecting to:', redirectPath);
-    router.push(redirectPath);
-  } catch (error: any) {
     console.error('API call failed:', error);
     const errorMessage =
       error.response?.data?.message ||
@@ -547,238 +692,275 @@ const handleDoctorRegistration = async () => {
 };
 </script>
   
-  <style scoped>
-  .doctor-registration-container {
-    background: linear-gradient(135deg, #9b87f5 0%, #7e69ab 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 1rem;
-  }
-  
-  .doctor-registration-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    width: 100%;
-    max-width: 800px;
-    padding: 2rem;
-  }
-  
-  .doctor-registration-header {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-  
-  .app-name {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1a1f2c;
-    margin: 0;
-  }
-  
-  .doctor-registration-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1a1f2c;
-    margin: 0.5rem 0;
-  }
-  
-  .doctor-registration-subtitle {
-    font-size: 0.9rem;
-    color: #8e9196;
-    margin: 0;
-  }
-  
-  .doctor-registration-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .doctor-registration-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  
-  .form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-  }
-  
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .form-group.full-width {
-    grid-column: 1 / -1;
-  }
-  
-  .form-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #1a1f2c;
-  }
-  
-  .input-container {
-    position: relative;
-  }
-  
-  .input-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    color: #8e9196;
-  }
-  
-  .form-input {
-    width: 100%;
-    padding: 0.75rem 1rem 0.75rem 2.5rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    background-color: #f9fafb;
-    color: #1a1f2c;
-    transition: border-color 0.2s ease;
-  }
-  
-  .form-input:focus {
-    outline: none;
-    border-color: #9b87f5;
-    box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.15);
-  }
-  
-  .form-input[type="textarea"] {
-    min-height: 100px;
-    resize: vertical;
-  }
-  
-  .input-error {
-    border-color: #ea384c !important;
-  }
-  
-  .error-message {
-    font-size: 0.75rem;
-    color: #ea384c;
-    margin-top: 0.25rem;
-  }
-  
-  .form-actions {
-    margin-top: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .login-button {
-    background: linear-gradient(to right, #9b87f5, #7e69ab);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0.75rem 1.5rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 100%;
-  }
-  
-  .login-button:hover:not(:disabled) {
-    background: linear-gradient(to right, #8b5cf6, #7e69ab);
-    box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3);
-    transform: translateY(-1px);
-  }
-  
-  .login-button:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-  
-  .spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 0.8s linear infinite;
-  }
-  
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #9b87f5 0%, #7e69ab 100%);
-    color: white;
-  }
-  
-  .loading-container .spinner {
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
-    width: 40px;
-    height: 40px;
-  }
-  
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  
-  .back-link {
-    font-size: 0.85rem;
-    color: #8e9196;
-    text-align: center;
-  }
-  
-  .back-link a {
-    color: #9b87f5;
-    text-decoration: none;
-  }
-  
-  .back-link a:hover {
-    text-decoration: underline;
-  }
-  
-  @media (max-width: 768px) {
-    .form-grid {
-      grid-template-columns: 1fr;
-    }
-  
-    .form-group.full-width {
-      grid-column: auto;
-    }
-  }
-  
-  @media (max-width: 576px) {
-    .doctor-registration-card {
-      max-width: 100%;
-      padding: 1.5rem;
-    }
-  
-    .app-name {
-      font-size: 1.25rem;
-    }
-  
-    .doctor-registration-title {
-      font-size: 1.1rem;
-    }
-  
-    .form-grid {
-      gap: 1rem;
-    }
-  }
-  </style>
+<style scoped>
+.doctor-registration-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.doctor-registration-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 800px;
+  padding: 2rem;
+}
+
+.doctor-registration-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.app-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1f2c;
+  margin: 0;
+}
+
+.doctor-registration-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1f2c;
+  margin: 0.5rem 0;
+}
+
+.doctor-registration-subtitle {
+  font-size: 0.9rem;
+  color: #8e9196;
+  margin: 0;
+}
+
+.doctor-registration-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.doctor-registration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a1f2c;
+}
+
+.input-container {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #8e9196;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background-color: #f9fafb;
+  color: #1a1f2c;
+  transition: border-color 0.2s ease;
+}
+
+.form networking-input:focus {
+  outline: none;
+  border-color: #9b87f5;
+  box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.15);
+}
+
+.form-input[type="textarea"] {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.input-error {
+  border-color: #ea384c !important;
+}
+
+.error-message {
+  font-size: 0.75rem;
+  color: #ea384c;
+  margin-top: 0.25rem;
+}
+
+.chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  background: #e2e8f0;
+  color: #1a1f2c;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: #8e9196;
+  font-size: 1rem;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.chip-remove:hover {
+  color: #ea384c;
+}
+
+.working-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.working-hours-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.working-hours-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.time-input-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-input-container.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.time-input {
+  padding: 0.5rem 0.75rem 0.5rem 2rem;
+}
+
+.time-divider {
+  font-size: 0.85rem;
+  color: #8e9196;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #9b87f5;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.login-button {
+  background: linear-gradient(to right, #9b87f5, #7e69ab);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.login-button:hover:not(:disabled) {
+  background: linear-gradient(to right, #8b5cf6, #7e69ab);
+  box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3);
+  transform: translateY(-1px);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+</style>

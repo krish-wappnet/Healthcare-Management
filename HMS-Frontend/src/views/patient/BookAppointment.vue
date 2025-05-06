@@ -539,6 +539,27 @@ const submitAppointment = async () => {
       paymentAmount: form.paymentAmount
     });
 
+    // Send email to doctor
+    try {
+      // Find the selected doctor's email
+      const doctor = doctors.value.find(d => d._id === form.doctor);
+      if (doctor?.user?.email) {
+        await apiClient.post('/mail/send-appointment-notification', {
+          doctorEmail: doctor.user.email,
+          appointmentDetails: {
+            patientName: `${patientStore.patient?.user?.firstName} ${patientStore.patient?.user?.lastName}`,
+            date: form.date,
+            startTime: form.startTime,
+            endTime: form.endTime,
+            notes: form.notes
+          }
+        });
+      }
+    } catch (emailError) {
+      console.error('Error sending appointment email:', emailError);
+      // Don't fail the entire appointment booking if email fails
+    }
+
     // Show success message
     alert('Appointment booked successfully!');
     closeBookingModal();

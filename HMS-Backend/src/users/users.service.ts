@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -57,7 +57,10 @@ export class UsersService {
     };
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(id: string | Types.ObjectId): Promise<User> {
+    if (typeof id === 'string') {
+      id = new Types.ObjectId(id);
+    }
     const user = await this.userModel.findById(id).exec();
     console.log('findByEmail - Found user:', user); // 
     if (!user) {
