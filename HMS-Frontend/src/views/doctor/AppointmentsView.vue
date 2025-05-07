@@ -11,7 +11,6 @@ import ProgressSpinner from 'primevue/progressspinner';
 import Dropdown from 'primevue/dropdown';
 import Paginator from 'primevue/paginator';
 import Chip from 'primevue/chip';
-import Dialog from 'primevue/dialog';
 
 // Interface for API response
 interface ApiResponse {
@@ -90,6 +89,13 @@ const statusFilter = ref<string | null>(null);
 const patientsMap = ref(new Map<string, { user: { firstName: string; lastName: string } }>());
 const selectedPatient = ref<Patient | null>(null);
 const patientDialogVisible = ref(false);
+const sections = ref({
+  personal: true,
+  medical: true,
+  emergency: true,
+  address: true,
+  insurance: true,
+});
 
 // Filter options
 const statusOptions = [
@@ -99,6 +105,10 @@ const statusOptions = [
   { label: 'Cancelled', value: 'cancelled' },
 ];
 
+// Toggle section
+const toggleSection = (section: string) => {
+  sections.value[section] = !sections.value[section];
+};
 
 const openMeetingLink = (link: string) => {
   if (link) window.open(link, '_blank');
@@ -203,6 +213,13 @@ const fetchPatientDetailsForDialog = async (patientId: string) => {
     });
     selectedPatient.value = response.data;
     patientDialogVisible.value = true;
+    sections.value = {
+      personal: true,
+      medical: true,
+      emergency: true,
+      address: true,
+      insurance: true,
+    };
   } catch (error: any) {
     console.error('Error fetching patient details:', error);
     toast.add({
@@ -419,141 +436,114 @@ onMounted(async () => {
       class="paginator"
     />
 
-    <!-- Patient Details Dialog -->
-    <Dialog
-      v-model:visible="patientDialogVisible"
-      header="Patient Details"
-      :style="{ width: '70vw' }"
-      :modal="true"
-    >
-      <div class="patient-details-container">
-        <!-- Personal Information -->
-        <div class="details-section">
-          <h3>Personal Information</h3>
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="label">Full Name:</span>
-              <span class="value">{{ selectedPatient?.user.firstName }} {{ selectedPatient?.user.lastName }}</span>
+    <!-- Modal Backdrop -->
+    <div v-if="patientDialogVisible" class="modal-backdrop"></div>
+
+    <!-- Patient Details Modal -->
+    <div class="modal-wrapper" v-if="patientDialogVisible">
+      <div class="modal details-modal" role="dialog" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <h2 id="modal-title">Patient Details</h2>
+          <button class="modal-close" @click="patientDialogVisible = false" aria-label="Close modal">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-content">
+          <!-- Personal Information -->
+          <div class="section">
+            <div class="section-header" @click="toggleSection('personal')" role="button" tabindex="0" @keydown.enter="toggleSection('personal')" :aria-expanded="sections.personal">
+              <h3><i class="pi pi-user section-icon personal-icon"></i> Personal Information</h3>
+              <i :class="sections.personal ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
             </div>
-            <div class="detail-item">
-              <span class="label">Email:</span>
-              <span class="value">{{ selectedPatient?.user.email }}</span>
+            <div v-if="sections.personal" class="section-content">
+              <p><strong>Full Name:</strong> {{ selectedPatient?.user.firstName }} {{ selectedPatient?.user.lastName }}</p>
+              <p><strong>Email:</strong> {{ selectedPatient?.user.email }}</p>
+              <p><strong>Phone:</strong> {{ selectedPatient?.phone }}</p>
+              <p><strong>Date of Birth:</strong> {{ selectedPatient?.dateOfBirth ? dayjs(selectedPatient?.dateOfBirth).format('MMMM D, YYYY') : 'N/A' }}</p>
+              <p><strong>Gender:</strong> {{ selectedPatient?.gender }}</p>
+              <p><strong>Blood Type:</strong> {{ selectedPatient?.bloodType }}</p>
             </div>
-            <div class="detail-item">
-              <span class="label">Phone:</span>
-              <span class="value">{{ selectedPatient?.phone }}</span>
+          </div>
+          <!-- Medical Information -->
+          <div class="section">
+            <div class="section-header" @click="toggleSection('medical')" role="button" tabindex="0" @keydown.enter="toggleSection('medical')" :aria-expanded="sections.medical">
+              <h3><i class="pi pi-heart section-icon medical-icon"></i> Medical Information</h3>
+              <i :class="sections.medical ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
             </div>
-            <div class="detail-item">
-              <span class="label">Date of Birth:</span>
-              <span class="value">{{ selectedPatient?.dateOfBirth ? dayjs(selectedPatient?.dateOfBirth).format('MMMM D, YYYY') : 'N/A' }}</span>
+            <div v-if="sections.medical" class="section-content">
+              <p><strong>Height:</strong> {{ selectedPatient?.height }} cm</p>
+              <p><strong>Weight:</strong> {{ selectedPatient?.weight }} kg</p>
+              <p><strong>Allergies:</strong> {{ selectedPatient?.allergies?.join(', ') || 'None' }}</p>
+              <p><strong>Medications:</strong> {{ selectedPatient?.medications?.join(', ') || 'None' }}</p>
+              <p><strong>Chronic Conditions:</strong> {{ selectedPatient?.chronicConditions?.join(', ') || 'None' }}</p>
             </div>
-            <div class="detail-item">
-              <span class="label">Gender:</span>
-              <span class="value">{{ selectedPatient?.gender }}</span>
+          </div>
+          <!-- Emergency Contact -->
+          <div class="section">
+            <div class="section-header" @click="toggleSection('emergency')" role="button" tabindex="0" @keydown.enter="toggleSection('emergency')" :aria-expanded="sections.emergency">
+              <h3><i class="pi pi-phone section-icon emergency-icon"></i> Emergency Contact</h3>
+              <i :class="sections.emergency ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
             </div>
-            <div class="detail-item">
-              <span class="label">Blood Type:</span>
-              <span class="value">{{ selectedPatient?.bloodType }}</span>
+            <div v-if="sections.emergency" class="section-content">
+              <p><strong>Name:</strong> {{ selectedPatient?.emergencyContactName }}</p>
+              <p><strong>Phone:</strong> {{ selectedPatient?.emergencyContactPhone }}</p>
+              <p><strong>Relation:</strong> {{ selectedPatient?.emergencyContactRelation }}</p>
+            </div>
+          </div>
+          <!-- Address -->
+          <div class="section">
+            <div class="section-header" @click="toggleSection('address')" role="button" tabindex="0" @keydown.enter="toggleSection('address')" :aria-expanded="sections.address">
+              <h3><i class="pi pi-map-marker section-icon address-icon"></i> Address</h3>
+              <i :class="sections.address ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
+            </div>
+            <div v-if="sections.address" class="section-content">
+              <p><strong>Address:</strong> {{ selectedPatient?.address }}</p>
+              <p><strong>City:</strong> {{ selectedPatient?.city }}</p>
+              <p><strong>State:</strong> {{ selectedPatient?.state }}</p>
+              <p><strong>Zip Code:</strong> {{ selectedPatient?.zipCode }}</p>
+              <p><strong>Country:</strong> {{ selectedPatient?.country }}</p>
+            </div>
+          </div>
+          <!-- Insurance -->
+          <div class="section">
+            <div class="section-header" @click="toggleSection('insurance')" role="button" tabindex="0" @keydown.enter="toggleSection('insurance')" :aria-expanded="sections.insurance">
+              <h3><i class="pi pi-shield section-icon insurance-icon"></i> Insurance Information</h3>
+              <i :class="sections.insurance ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
+            </div>
+            <div v-if="sections.insurance" class="section-content">
+              <p><strong>Provider:</strong> {{ selectedPatient?.insuranceProvider }}</p>
+              <p><strong>Policy Number:</strong> {{ selectedPatient?.insurancePolicyNumber }}</p>
             </div>
           </div>
         </div>
-
-        <!-- Medical Information -->
-        <div class="details-section">
-          <h3>Medical Information</h3>
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="label">Height:</span>
-              <span class="value">{{ selectedPatient?.height }} cm</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Weight:</span>
-              <span class="value">{{ selectedPatient?.weight }} kg</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Allergies:</span>
-              <span class="value">{{ selectedPatient?.allergies?.join(', ') || 'None' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Medications:</span>
-              <span class="value">{{ selectedPatient?.medications?.join(', ') || 'None' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Chronic Conditions:</span>
-              <span class="value">{{ selectedPatient?.chronicConditions?.join(', ') || 'None' }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Emergency Contact -->
-        <div class="details-section">
-          <h3>Emergency Contact</h3>
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="label">Name:</span>
-              <span class="value">{{ selectedPatient?.emergencyContactName }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Phone:</span>
-              <span class="value">{{ selectedPatient?.emergencyContactPhone }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Relation:</span>
-              <span class="value">{{ selectedPatient?.emergencyContactRelation }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Address -->
-        <div class="details-section">
-          <h3>Address</h3>
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="label">Address:</span>
-              <span class="value">{{ selectedPatient?.address }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">City:</span>
-              <span class="value">{{ selectedPatient?.city }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">State:</span>
-              <span class="value">{{ selectedPatient?.state }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Zip Code:</span>
-              <span class="value">{{ selectedPatient?.zipCode }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Country:</span>
-              <span class="value">{{ selectedPatient?.country }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Insurance -->
-        <div class="details-section">
-          <h3>Insurance Information</h3>
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="label">Provider:</span>
-              <span class="value">{{ selectedPatient?.insuranceProvider }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Policy Number:</span>
-              <span class="value">{{ selectedPatient?.insurancePolicyNumber }}</span>
-            </div>
-          </div>
+        <div class="modal-footer">
+          <button class="button text-button" @click="patientDialogVisible = false" aria-label="Close modal">
+            Close
+          </button>
         </div>
       </div>
-    </Dialog>
+    </div>
   </div>
 </template>
 
 <style scoped>
+:root {
+  --primary: #007bff;
+  --primary-dark: #0056b3;
+  --success: #28a745;
+  --danger: #dc3545;
+  --warning: #ffc107;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --background: #f4f4f9;
+  --border-color: #dee2e6;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
 .appointments-view {
   padding: 2rem;
-  background: var(--surface-ground);
+  background: var(--background);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Header */
@@ -566,7 +556,7 @@ onMounted(async () => {
 
 .appointments-title {
   font-size: 2rem;
-  color: var(--text-color);
+  color: var(--text-primary);
   margin: 0;
   font-weight: 600;
 }
@@ -587,19 +577,19 @@ onMounted(async () => {
 .filter-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-color);
+  color: var(--text-primary);
 }
 
 .filter-dropdown {
   width: 200px;
-  border: 1px solid var(--surface-border);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   background: white;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .filter-dropdown:hover {
-  border-color: var(--primary-color);
+  border-color: var(--primary);
 }
 
 :deep(.filter-dropdown .p-dropdown-label) {
@@ -609,8 +599,8 @@ onMounted(async () => {
 
 :deep(.filter-dropdown .p-dropdown-panel) {
   border-radius: 8px;
-  border: 1px solid var(--surface-border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
 }
 
 :deep(.filter-dropdown .p-dropdown-item) {
@@ -619,12 +609,12 @@ onMounted(async () => {
 }
 
 :deep(.filter-dropdown .p-dropdown-item.p-highlight) {
-  background: var(--primary-color);
+  background: var(--primary);
   color: white;
 }
 
 :deep(.filter-dropdown .p-dropdown-item:hover:not(.p-highlight)) {
-  background: rgba(155, 135, 245, 0.1);
+  background: var(--background);
 }
 
 .dropdown-value,
@@ -636,7 +626,7 @@ onMounted(async () => {
 
 .dropdown-value i,
 .dropdown-option i {
-  color: var(--primary-color);
+  color: var(--primary);
 }
 
 /* Loading State */
@@ -647,7 +637,7 @@ onMounted(async () => {
   justify-content: center;
   min-height: 200px;
   gap: 1rem;
-  color: var(--text-color-secondary);
+  color: var(--text-secondary);
 }
 
 .loading-container p {
@@ -662,7 +652,7 @@ onMounted(async () => {
   justify-content: center;
   min-height: 200px;
   gap: 1rem;
-  color: #EF4444;
+  color: var(--danger);
 }
 
 .error-container i {
@@ -683,7 +673,7 @@ onMounted(async () => {
 
 .appointment-card {
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--card-shadow);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -711,29 +701,59 @@ onMounted(async () => {
 
 .patient-info h3 {
   font-size: 1.25rem;
-  color: var(--text-color);
+  color: var(--text-primary);
   margin: 0;
 }
 
 .patient-id {
   font-size: 0.875rem;
-  color: var(--text-color-secondary);
+  color: var(--text-secondary);
   margin: 0;
 }
 
 .status-scheduled {
-  background: #10B981;
-  color: white;
+  background: #e7f1ff;
+  color: var(--primary);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.status-scheduled:hover {
+  transform: scale(1.05);
 }
 
 .status-completed {
-  background: #3B82F6;
-  color: white;
+  background: #d4edda;
+  color: var(--success);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.status-completed:hover {
+  transform: scale(1.05);
 }
 
 .status-cancelled {
-  background: #EF4444;
-  color: white;
+  background: #f8d7da;
+  color: var(--danger);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.status-cancelled:hover {
+  transform: scale(1.05);
 }
 
 .appointment-details {
@@ -747,16 +767,16 @@ onMounted(async () => {
   align-items: center;
   gap: 0.75rem;
   font-size: 0.875rem;
-  color: var(--text-color);
+  color: var(--text-primary);
 }
 
 .detail-row i {
-  color: var(--primary-color);
+  color: var(--primary);
   font-size: 1rem;
 }
 
 .symptoms .symptom-chip {
-  background: var(--primary-color);
+  background: var(--primary);
   color: white;
   border-radius: 16px;
   padding: 0.25rem 0.75rem;
@@ -772,12 +792,12 @@ onMounted(async () => {
 }
 
 :deep(.p-button-text) {
-  color: var(--primary-color);
+  color: var(--primary);
   padding: 0.5rem 1rem;
 }
 
 :deep(.p-button-text:hover) {
-  background: rgba(155, 135, 245, 0.1);
+  background: var(--background);
 }
 
 /* Empty State */
@@ -788,7 +808,7 @@ onMounted(async () => {
   justify-content: center;
   gap: 1rem;
   padding: 3rem;
-  color: var(--text-color-secondary);
+  color: var(--text-secondary);
 }
 
 .no-appointments i {
@@ -806,74 +826,267 @@ onMounted(async () => {
 }
 
 :deep(.p-paginator) {
-  background: var(--surface-ground);
+  background: var(--background);
   border: none;
 }
 
 :deep(.p-paginator .p-paginator-page) {
   border-radius: 8px;
-  color: var(--text-color);
+  color: var(--text-primary);
 }
 
 :deep(.p-paginator .p-paginator-page.p-highlight) {
-  background: var(--primary-color);
+  background: var(--primary);
   color: white;
 }
 
 :deep(.p-paginator .p-paginator-page:hover) {
-  background: rgba(155, 135, 245, 0.1);
+  background: var(--background);
 }
 
-/* Patient Details Dialog */
-.patient-details-container {
-  padding: 1.5rem;
-  
-  .details-section {
-    margin-bottom: 2rem;
-    
-    h3 {
-      margin: 0 0 1rem 0;
-      font-size: 1.25rem;
-      color: var(--text-color);
+/* Modal Backdrop */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Modal Wrapper */
+.modal-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Modal */
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s ease-out;
+  padding: 1rem;
+}
+
+/* Modal Header */
+.modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+
+  h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease;
+
+    &:hover {
+      color: var(--primary);
+      transform: scale(1.1);
     }
-    
-    .details-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1rem;
-      
-      .detail-item {
+  }
+}
+
+/* Modal Content */
+.modal-content {
+  padding: 2rem;
+
+  .section {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: all 0.3s ease;
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      background: #f8f9fa;
+      cursor: pointer;
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: var(--background);
+      }
+
+      h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
         display: flex;
-        flex-direction: column;
+        align-items: center;
         gap: 0.5rem;
-        
-        .label {
-          font-weight: 500;
-          color: var(--text-color-secondary);
+      }
+
+      .section-icon {
+        font-size: 1.25rem;
+
+        &.personal-icon {
+          color: #17a2b8;
         }
-        
-        .value {
-          color: var(--text-color);
+
+        &.medical-icon {
+          color: #dc3545;
+        }
+
+        &.emergency-icon {
+          color: #28a745;
+        }
+
+        &.address-icon {
+          color: #6f42c1;
+        }
+
+        &.insurance-icon {
+          color: #fd7e14;
+        }
+      }
+
+      i:not(.section-icon) {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        transition: transform 0.3s ease;
+      }
+
+      &[aria-expanded="true"] i.pi-chevron-right {
+        transform: rotate(90deg);
+      }
+    }
+
+    .section-content {
+      padding: 1.5rem;
+      background: #ffffff;
+      animation: slideDown 0.3s ease;
+
+      p {
+        font-size: 0.95rem;
+        color: var(--text-primary);
+        margin: 0.75rem 0;
+        line-height: 1.6;
+
+        strong {
+          color: var(--text-secondary);
+          margin-right: 0.5rem;
         }
       }
     }
   }
 }
 
-:deep(.p-dialog-header) {
-  background: var(--primary-color);
-  color: white;
-  padding: 1.5rem;
-  border-radius: 12px 12px 0 0;
+/* Modal Footer */
+.modal-footer {
+  padding: 1rem 2rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  background: #f8f9fa;
 }
 
-:deep(.p-dialog-content) {
-  padding: 0;
+/* Button */
+.button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  position: relative;
+  overflow: hidden;
+
+  &.text-button {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px prochains solid var(--border-color);
+
+    &:hover {
+      background: var(--background);
+      color: var(--primary);
+      transform: scale(1.05);
+    }
+  }
+
+  &:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s ease, height 0.3s ease;
+  }
+
+  &:active:after {
+    width: 200px;
+    height: 200px;
+  }
 }
 
-:deep(.p-dialog-footer) {
-  padding: 1.5rem;
-  text-align: right;
+/* Animations */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Responsive Design */
@@ -899,6 +1112,54 @@ onMounted(async () => {
   .appointment-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .modal {
+    margin: 1rem;
+    max-width: calc(100% - 2rem);
+    max-height: 90vh;
+
+    .modal-header {
+      padding: 1rem;
+
+      h2 {
+        font-size: 1.25rem;
+      }
+
+      .modal-close {
+        font-size: 1.25rem;
+      }
+    }
+
+    .modal-content {
+      padding: 1rem;
+
+      .section {
+        .section-header {
+          padding: 0.75rem 1rem;
+
+          h3 {
+            font-size: 1rem;
+          }
+
+          i {
+            font-size: 1rem;
+          }
+        }
+
+        .section-content {
+          padding: 1rem;
+
+          p {
+            font-size: 0.85rem;
+          }
+        }
+      }
+    }
+
+    .modal-footer {
+      padding: 0.75rem 1rem;
+    }
   }
 }
 </style>

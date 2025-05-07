@@ -743,20 +743,7 @@ onMounted(async () => {
 
 <template>
    <div class="patient-dashboard">
-    <!-- Header with Title and Profile Icon -->
-    <div class="dashboard-header">
-      <h1 class="dashboard-title">Patient Dashboard</h1>
-      <div class="profile-icon-container">
-        <button
-          class="profile-icon"
-          @click="router.push('/patient/profile')"
-          aria-label="View Profile"
-        >
-          <i class="pi pi-user"></i>
-        </button>
-      </div>
-    </div>
-
+    <!-- Header -->
     <!-- Dashboard Content -->
     <div class="dashboard-content" v-if="!loading">
       <!-- Welcome message with upcoming appointment alert -->

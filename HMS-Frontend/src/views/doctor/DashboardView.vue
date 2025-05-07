@@ -5,8 +5,6 @@ import { useToast } from 'primevue/usetoast';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
 import ProgressSpinner from 'primevue/progressspinner';
-import VitalSignsChart from '../../components/charts/VitalSignsChart.vue';
-import HealthDataCard from '../../components/health-data/HealthDataCard.vue';
 import { dashboardService, appointmentService, patientService, apiClient, healthDataService } from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 import dayjs from 'dayjs';
@@ -32,7 +30,10 @@ interface Appointment {
   _id: string;
   patient: {
     _id: string;
-    user: string;
+    user: {
+      firstName?: string;
+      lastName?: string;
+    };
     dateOfBirth: string;
     gender: string;
     bloodType: string;
@@ -64,6 +65,7 @@ interface Appointment {
   symptoms?: string[];
   isPaid: boolean;
   paymentAmount: number;
+  meetingLink?: string;
 }
 
 interface HealthData {
@@ -100,6 +102,16 @@ interface DoctorProfile {
   updatedAt: string;
 }
 
+// Device type mapping for readable display
+const deviceTypeMap: { [key: string]: { name: string; icon: string; color: string } } = {
+  smartwatch: { name: 'Smartwatch', icon: 'pi pi-clock', color: '#3b82f6' },
+  blood_pressure: { name: 'Blood Pressure Monitor', icon: 'pi pi-heart', color: '#ef4444' },
+  glucose_monitor: { name: 'Glucose Monitor', icon: 'pi pi-tint', color: '#22c55e' },
+  pulse_oximeter: { name: 'Pulse Oximeter', icon: 'pi pi-pulse', color: '#f59e0b' },
+  thermometer: { name: 'Thermometer', icon: 'pi pi-thermometer', color: '#14b8a6' },
+  weight_scale: { name: 'Weight Scale', icon: 'pi pi-balance-scale', color: '#8b5cf6' },
+};
+
 // State
 const toast = useToast();
 const router = useRouter();
@@ -120,7 +132,6 @@ const doctorProfile = ref<DoctorProfile | null>(null);
 const loadingProfile = ref(false);
 const healthMetrics = ref<any[]>([]);
 const abnormalReadings = ref<any[]>([]);
-const selectedDevice = ref<string>('');
 const patients = ref<Patient[]>([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
@@ -130,8 +141,7 @@ const healthData = ref<any[]>([]);
 const healthDataTotal = ref(0);
 const healthDataPage = ref(1);
 const healthDataPerPage = ref(10);
-const selectedDeviceType = ref<string>('');
-const deviceTypes = ref<string[]>([]);
+const expandedHealthData = ref<string[]>([]);
 
 // Computed properties
 const isAuthorized = computed(() => {
@@ -140,11 +150,6 @@ const isAuthorized = computed(() => {
 
 const isProfileIncomplete = computed(() => {
   return authStore.userRole === 'doctor' && (!doctorProfile.value || !doctorProfile.value.specialization);
-});
-
-const filteredHealthData = computed(() => {
-  if (!selectedDeviceType.value) return healthData.value;
-  return healthData.value.filter(data => data.deviceType === selectedDeviceType.value);
 });
 
 // Fetch doctor profile
@@ -240,11 +245,9 @@ const fetchDashboardData = async () => {
 // Fetch patient health data
 const fetchPatientHealthData = async (patientId: string) => {
   try {
-    // Get latest health metrics
     const metricsResponse = await healthDataService.getPatientData(patientId, { page: 1, limit: 5 });
     healthMetrics.value = metricsResponse.data;
 
-    // Get abnormal readings
     const abnormalResponse = await healthDataService.getAbnormalReadings(patientId, { page: 1, limit: 10 });
     abnormalReadings.value = abnormalResponse.data;
   } catch (error) {
@@ -253,7 +256,7 @@ const fetchPatientHealthData = async (patientId: string) => {
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to load health data',
-      life: 3000
+      life: 3000,
     });
   }
 };
@@ -269,26 +272,35 @@ const fetchHealthData = async (patientId: string, page: number = 1) => {
     healthData.value = response.data.data;
     healthDataTotal.value = response.data.total;
     
-    // Extract unique device types
-    deviceTypes.value = [...new Set(response.data.data.map(data => data.deviceType))];
-    
-    // Format health data
-    healthData.value = healthData.value.map(data => ({
-      ...data,
-      timestamp: dayjs(data.timestamp).format('MMM D, YYYY - h:mm A'),
-      deviceType: data.deviceType,
-      deviceId: data.deviceId,
-      isAbnormal: data.isAbnormal,
-      abnormalityReason: data.abnormalityReason,
-      metrics: data.data
-    }));
+    healthData.value = healthData.value.map(data => {
+      const metrics: { [key: string]: string | number } = { ...data.data };
+      
+      if (data.data.bloodPressure) {
+        const [systolic, diastolic] = data.data.bloodPressure.split('/').map(Number);
+        metrics.systolic = systolic || 'N/A';
+        metrics.diastolic = diastolic || 'N/A';
+        delete metrics.bloodPressure;
+      }
+
+      return {
+        ...data,
+        timestamp: dayjs(data.timestamp).format('MMM D, YYYY - h:mm A'),
+        deviceType: deviceTypeMap[data.deviceType]?.name || data.deviceType,
+        deviceIcon: deviceTypeMap[data.deviceType]?.icon || 'pi pi-heart',
+        deviceColor: deviceTypeMap[data.deviceType]?.color || '#3b82f6',
+        deviceId: data.deviceId,
+        isAbnormal: data.isAbnormal,
+        abnormalityReason: data.abnormalityReason || '',
+        metrics,
+      };
+    });
   } catch (error: any) {
     console.error('Error fetching health data:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: error.response?.data?.message || 'Failed to load health data',
-      life: 3000
+      life: 3000,
     });
   } finally {
     loadingPatientData.value = false;
@@ -301,7 +313,6 @@ const selectPatient = async (patient: Patient) => {
   loadingPatientData.value = true;
   
   try {
-    // Only fetch health devices data
     await fetchHealthData(patient.id);
   } catch (error) {
     console.error('Error fetching health devices data:', error);
@@ -309,7 +320,7 @@ const selectPatient = async (patient: Patient) => {
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to load health devices data',
-      life: 3000
+      life: 3000,
     });
   } finally {
     loadingPatientData.value = false;
@@ -324,7 +335,6 @@ const fetchPatients = async (page: number = 1) => {
     
     const response = await apiClient.get(`/patients?page=${page}&limit=${patientsPerPage.value}`);
     
-    // First check if we got valid data
     if (!response.data || !response.data.data) {
       throw new Error('Invalid response from server');
     }
@@ -333,28 +343,23 @@ const fetchPatients = async (page: number = 1) => {
     totalPatients.value = response.data.total || 0;
     totalPages.value = Math.ceil(totalPatients.value / patientsPerPage.value);
     
-    // Format patient data with null checks
     patients.value = patients.value.map(patient => {
-      // Handle undefined or null values
       const user = patient.user || {};
       const firstName = user.firstName || '';
       const lastName = user.lastName || '';
       const dateOfBirth = patient.dateOfBirth || '';
       const gender = patient.gender || '';
-      const profilePicture = user.profilePicture || 'https://via.placeholder.com/40';
       
       return {
-        id: patient.id || '',
+        id: patient._id || '',
         name: `${firstName} ${lastName}`.trim() || 'Unknown Patient',
         age: dateOfBirth ? dayjs().diff(dateOfBirth, 'year') : 0,
         gender: gender || 'Unknown',
-        avatar: profilePicture
       };
     });
   } catch (error: any) {
     console.error('Error fetching patients:', error);
     
-    // Handle different types of errors
     const errorMessage = error.response?.data?.message || 
       error.message || 
       'Failed to load patients';
@@ -363,7 +368,7 @@ const fetchPatients = async (page: number = 1) => {
       severity: 'error',
       summary: 'Error',
       detail: errorMessage,
-      life: 3000
+      life: 3000,
     });
   } finally {
     loading.value = false;
@@ -394,7 +399,18 @@ const goToPage = async (page: number) => {
 
 // Format appointment date
 const formatAppointmentDate = (date: string, time: string) => {
-  return dayjs(`${date}T${time}`).format('MMM D, YYYY - h:mm A');
+  try {
+    const datePart = date.split('T')[0];
+    const dateTimeString = `${datePart}T${time}:00.000Z`;
+    const formatted = dayjs(dateTimeString);
+    if (!formatted.isValid()) {
+      throw new Error('Invalid date');
+    }
+    return formatted.format('MMM D, YYYY - h:mm A');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Date Unavailable';
+  }
 };
 
 // Navigate to doctor registration
@@ -423,7 +439,6 @@ const goToDoctorProfile = () => {
     return;
   }
   
-  // Check if profile exists
   if (!doctorProfile.value) {
     toast.add({
       severity: 'warning',
@@ -443,9 +458,13 @@ const viewAllAppointments = () => {
   router.push('/doctor/appointments');
 };
 
-// Format date
-const formatDate = (date: string) => {
-  return dayjs(date).format('MMMM D, YYYY');
+// Toggle health data expansion
+const toggleHealthData = (id: string) => {
+  if (expandedHealthData.value.includes(id)) {
+    expandedHealthData.value = expandedHealthData.value.filter(item => item !== id);
+  } else {
+    expandedHealthData.value.push(id);
+  }
 };
 
 // Initial data load
@@ -473,291 +492,249 @@ watch(selectedPatient, async (newPatient) => {
 
 <template>
   <div class="doctor-dashboard">
+    <!-- Dashboard Header -->
     <div class="dashboard-header">
-      <h1 class="dashboard-title">Doctor Dashboard</h1>
       <div class="header-actions">
-        <Button
+        <button
           v-if="isProfileIncomplete && !loadingProfile"
-          label="Complete Your Profile"
-          icon="pi pi-user-edit"
-          class="profile-button"
-          v-tooltip.bottom="'Complete your doctor profile'"
+          class="button primary-button"
           @click="goToDoctorRegistration"
-        />
-        <Button
-          icon="pi pi-user"
-          rounded
-          text
-          aria-label="View profile"
-          v-tooltip.bottom="'View your profile'"
-          @click="goToDoctorProfile"
-        />
+          aria-label="Complete your profile"
+        >
+          <i class="pi pi-user-edit"></i> Complete Profile
+        </button>
       </div>
     </div>
 
-    <!-- Loading state -->
+    <!-- Loading State -->
     <div v-if="loading" class="loading-container">
-      <ProgressSpinner />
-      <p>Loading dashboard data...</p>
+      <ProgressSpinner class="spinner" />
+      <p>Loading dashboard...</p>
     </div>
 
-    <!-- Dashboard content -->
+    <!-- Dashboard Content -->
     <div v-else class="dashboard-content">
-      <!-- Stats overview -->
+      <!-- Stats Overview -->
       <div class="stats-container">
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-icon">
-              <i class="pi pi-users"></i>
-            </div>
-            <div class="stat-info">
-              <h3>{{ stats.totalPatients }}</h3>
-              <p>Total Patients</p>
-            </div>
-          </template>
-        </Card>
-
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-icon">
-              <i class="pi pi-calendar"></i>
-            </div>
-            <div class="stat-info">
-              <h3>{{ stats.todayAppointments }}</h3>
-              <p>Today's Appointments</p>
-            </div>
-          </template>
-        </Card>
-
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-icon">
-              <i class="pi pi-video"></i>
-            </div>
-            <div class="stat-info">
-              <h3>{{ stats.pendingConsultations }}</h3>
-              <p>Pending Consultations</p>
-            </div>
-          </template>
-        </Card>
-
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-icon">
-              <i class="pi pi-check-circle"></i>
-            </div>
-            <div class="stat-info">
-              <h3>{{ stats.completedAppointmentsThisWeek }}</h3>
-              <p>Completed This Week</p>
-            </div>
-          </template>
-        </Card>
+        <div class="stat-card patients">
+          <i class="pi pi-users stat-icon"></i>
+          <div class="stat-info">
+            <h3>{{ stats.totalPatients }}</h3>
+            <p>Total Patients</p>
+            <div class="progress-bar" :style="{ width: `${Math.min(stats.totalPatients * 2, 100)}%` }"></div>
+          </div>
+        </div>
+        <div class="stat-card appointments">
+          <i class="pi pi-calendar stat-icon"></i>
+          <div class="stat-info">
+            <h3>{{ stats.todayAppointments }}</h3>
+            <p>Today's Appointments</p>
+            <div class="progress-bar" :style="{ width: `${Math.min(stats.todayAppointments * 10, 100)}%` }"></div>
+          </div>
+        </div>
+        <div class="stat-card consultations">
+          <i class="pi pi-video stat-icon"></i>
+          <div class="stat-info">
+            <h3>{{ stats.pendingConsultations }}</h3>
+            <p>Pending Consultations</p>
+            <div class="progress-bar" :style="{ width: `${Math.min(stats.pendingConsultations * 10, 100)}%` }"></div>
+          </div>
+        </div>
+        <div class="stat-card completed">
+          <i class="pi pi-check-circle stat-icon"></i>
+          <div class="stat-info">
+            <h3>{{ stats.completedAppointmentsThisWeek }}</h3>
+            <p>Completed This Week</p>
+            <div class="progress-bar" :style="{ width: `${Math.min(stats.completedAppointmentsThisWeek * 5, 100)}%` }"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Main dashboard content -->
+      <!-- Dashboard Grid -->
       <div class="dashboard-grid">
-        <!-- Left column: Patients & Appointments -->
+        <!-- Left Column -->
         <div class="dashboard-left">
-          <!-- Patient selection section -->
-          <Card class="patient-selection">
-            <template #header>
-              <div class="card-header">
-                <h2>Select a Patient</h2>
-                <Button
-                  icon="pi pi-users"
-                  rounded
-                  text
-                  aria-label="View all patients"
-                  v-tooltip.bottom="'View all patients'"
-                  @click="router.push('/doctor/patients')"
-                />
+          <!-- Patient Selection -->
+          <div class="card patient-selection">
+            <div class="card-header">
+              <h2>Select a Patient</h2>
+              <button
+                class="button icon-button"
+                @click="router.push('/doctor/patients')"
+                aria-label="View all patients"
+                v-tooltip.bottom="'View all patients'"
+              >
+                <i class="pi pi-users"></i>
+              </button>
+            </div>
+            <div class="patients-list">
+              <div
+                v-for="patient in patients"
+                :key="patient.id"
+                class="patient-item"
+                :class="{ active: selectedPatient?.id === patient.id }"
+                @click="selectPatient(patient)"
+              >
+                <div class="patient-avatar"></div>
+                <div class="patient-info">
+                  <h3 class="patient-name">{{ patient.name }}</h3>
+                  <p class="patient-details">
+                    <span>{{ patient.age }} years</span>
+                    <span class="divider">•</span>
+                    <span>{{ patient.gender }}</span>
+                  </p>
+                </div>
               </div>
-            </template>
+              <div v-if="!patients.length" class="no-data">
+                <i class="pi pi-users"></i>
+                <p>No patients found</p>
+              </div>
+            </div>
+            <div class="pagination" v-if="totalPages > 1">
+              <button
+                class="pagination-button"
+                @click="previousPage"
+                :disabled="currentPage === 1"
+                aria-label="Previous page"
+              >
+                <i class="pi pi-angle-left"></i>
+              </button>
+              <button
+                v-for="page in totalPages"
+                :key="page"
+                class="pagination-button"
+                :class="{ active: currentPage === page }"
+                @click="goToPage(page)"
+                :aria-label="`Go to page ${page}`"
+              >
+                {{ page }}
+              </button>
+              <button
+                class="pagination-button"
+                @click="nextPage"
+                :disabled="currentPage === totalPages"
+                aria-label="Next page"
+              >
+                <i class="pi pi-angle-right"></i>
+              </button>
+            </div>
+          </div>
 
-            <template #content>
-              <div class="patients-list">
-                <div
-                  v-for="patient in patients"
-                  :key="patient.id"
-                  class="patient-item"
-                  :class="{ active: selectedPatient?.id === patient.id }"
-                  @click="selectPatient(patient)"
+          <!-- Upcoming Appointments -->
+          <div class="card upcoming-appointments">
+            <div class="card-header">
+              <h2>Upcoming Appointments</h2>
+              <button
+                class="button text-button"
+                @click="viewAllAppointments"
+              >
+                <i class="pi pi-external-link"></i> View All
+              </button>
+            </div>
+            <div class="appointments-list">
+              <div v-if="loading" class="loading-state">
+                <ProgressSpinner class="spinner" />
+                <p>Loading appointments...</p>
+              </div>
+              <div v-else-if="upcomingAppointments.length === 0" class="no-data">
+                <i class="pi pi-calendar-times"></i>
+                <p>No upcoming appointments</p>
+              </div>
+              <div
+                v-for="(appointment, index) in upcomingAppointments"
+                :key="appointment._id"
+                class="appointment-item"
+                :class="{ 'first-appointment': index === 0 }"
+              >
+                <div class="appointment-status" :class="`status-${appointment.status.toLowerCase()}`" v-tooltip.bottom="appointment.status"></div>
+                <div class="appointment-info">
+                  <div class="appointment-date">
+                    <i class="pi pi-calendar"></i>
+                    {{ formatAppointmentDate(appointment.date, appointment.startTime) }}
+                  </div>
+                  <div class="appointment-type">{{ appointment.type }}</div>
+                  <div class="appointment-reason">{{ appointment.reasonForVisit }}</div>
+                </div>
+                <button
+                  class="button text-button"
+                  @click="router.push(`/doctor/appointments/${appointment._id}`)"
                 >
-                  <div class="patient-info">
-                    <h3 class="patient-name">{{ patient.name }}</h3>
-                    <p class="patient-details">
-                      <span>{{ patient.age }} years</span>
-                      <span class="divider">•</span>
-                      <span>{{ patient.gender }}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div v-if="!patients.length" class="no-data">
-                  <i class="pi pi-users"></i>
-                  <p>No patients found</p>
-                </div>
+                  <i class="pi pi-arrow-right"></i> Details
+                </button>
               </div>
-
-              <!-- Pagination -->
-              <div class="pagination" v-if="totalPages > 1">
-                <Button
-                  icon="pi pi-angle-left"
-                  @click="previousPage"
-                  :disabled="currentPage === 1"
-                />
-                <Button
-                  v-for="page in totalPages"
-                  :key="page"
-                  label="page"
-                  @click="goToPage(page)"
-                  :class="{ 'p-button-active': currentPage === page }"
-                />
-                <Button
-                  icon="pi pi-angle-right"
-                  @click="nextPage"
-                  :disabled="currentPage === totalPages"
-                />
-              </div>
-            </template>
-          </Card>
-
-          <!-- Upcoming appointments -->
-          <Card class="upcoming-appointments">
-            <template #title>
-              <div class="card-header">
-                <h5>Upcoming Appointments</h5>
-                <Button
-                  label="View All"
-                  icon="pi pi-external-link"
-                  text
-                  @click="viewAllAppointments"
-                />
-              </div>
-            </template>
-
-            <template #content>
-              <div class="appointments-container">
-                <div v-if="loading" class="loading-state">
-                  <ProgressSpinner />
-                  <p>Loading appointments...</p>
-                </div>
-
-                  <div v-else-if="error" class="error-state">
-                    <p>{{ error }}</p>
-                  </div>
-
-                <div v-else class="appointments-list">
-                  <div
-                    v-if="upcomingAppointments.length === 0"
-                    class="no-appointments"
-                  >
-                    <i class="pi pi-calendar-times"></i>
-                    <p>No upcoming appointments</p>
-                  </div>
-
-                  <div
-                    v-for="appointment in upcomingAppointments"
-                    :key="appointment._id"
-                    class="appointment-item"
-                  >
-                    <div class="appointment-date">{{ formatDate(appointment.date) }}</div>
-                    <div class="appointment-type">{{ appointment.type }}</div>
-                    <Button
-                      label="Details"
-                      icon="pi pi-arrow-right"
-                      text
-                      @click="router.push(`/doctor/appointments/${appointment._id}`)"
-                    />
-                  </div>
-                </div>
-              </div>
-            </template>
-          </Card>
-
+            </div>
+          </div>
         </div>
 
-        <!-- Right column: Patient health data -->
+        <!-- Right Column -->
         <div class="dashboard-right">
-          <Card v-if="selectedPatient" class="health-data">
-            <template #header>
-              <div class="health-data-header">
-                <h2>{{ selectedPatient.name }}'s Health Data</h2>
-                <div class="device-filter" v-if="deviceTypes.length > 0">
-                  <label for="deviceType">Filter by Device:</label>
-                  <Dropdown
-                    id="deviceType"
-                    v-model="selectedDeviceType"
-                    :options="deviceTypes"
-                    placeholder="All Devices"
-                    class="device-type-dropdown"
-                  />
-                </div>
+          <div v-if="selectedPatient" class="card health-data">
+            <div class="card-header">
+              <h2>{{ selectedPatient.name }}'s Health Data</h2>
+            </div>
+            <div class="health-data-content">
+              <div v-if="loadingPatientData" class="loading-state">
+                <ProgressSpinner class="spinner" />
+                <p>Loading health data...</p>
               </div>
-            </template>
-
-            <template #content>
-              <div class="health-data-content">
-                <div v-if="loadingPatientData" class="loading-state">
-                  <ProgressSpinner />
-                  <p>Loading health data...</p>
-                </div>
-
-                <div v-else-if="!filteredHealthData.length" class="no-data">
-                  <i class="pi pi-heart"></i>
-                  <p>No health data available</p>
-                </div>
-
-                <div v-else class="health-data-container">
-                  <div class="health-data-list">
-                    <div v-for="data in filteredHealthData" :key="data._id" class="health-data-item">
-                      <div class="data-header">
+              <div v-else-if="!healthData.length" class="no-data">
+                <i class="pi pi-heart"></i>
+                <p>No health data available</p>
+              </div>
+              <div v-else class="health-data-container">
+                <div class="health-data-list">
+                  <div v-for="data in healthData" :key="data._id" class="health-data-item" :style="{ 'border-left': `4px solid ${data.deviceColor}` }">
+                    <div class="data-header" @click="toggleHealthData(data._id)">
+                      <div class="device-info">
+                        <i :class="data.deviceIcon" class="device-icon"></i>
                         <h3>{{ data.deviceType }}</h3>
-                        <span class="timestamp">{{ data.timestamp }}</span>
                       </div>
-
-                      <div class="metrics-grid">
-                        <div v-for="(value, metric) in data.metrics" :key="metric" class="metric-item">
-                          <span class="metric-label">{{ String(metric).replace(/([A-Z])/g, ' $1').trim() }}:</span>
-                          <span class="metric-value" :class="{ 'abnormal': data.isAbnormal }">{{ value }}</span>
-                        </div>
-                      </div>
-
-                      <div v-if="data.isAbnormal" class="abnormal-alert">
-                        <i class="pi pi-exclamation-triangle"></i>
-                        <span>{{ data.abnormalityReason || 'Abnormal reading detected' }}</span>
+                      <span class="timestamp">{{ data.timestamp }}</span>
+                      <i :class="expandedHealthData.includes(data._id) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" class="toggle-icon"></i>
+                    </div>
+                    <div v-if="expandedHealthData.includes(data._id)" class="metrics-grid">
+                      <div v-for="(value, metric) in data.metrics" :key="metric" class="metric-item">
+                        <span class="metric-label">{{ metric.replace(/([A-Z])/g, ' $1').trim() }}</span>
+                        <span class="metric-value" :class="{ abnormal: data.isAbnormal }">{{ value }}</span>
                       </div>
                     </div>
-                  </div>
-
-                  <div v-if="healthDataTotal > healthDataPerPage" class="health-data-pagination">
-                    <Button
-                      v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
-                      :key="page"
-                      :label="String(page)"
-                      @click="() => fetchHealthData(selectedPatient!.id, page)"
-                      :class="{ 'p-button-active': healthDataPage === page }"
-                    />
-                    <Button
-                        v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
-                        :key="page"
-                        :label="String(page)"
-                        @click="() => fetchHealthData(selectedPatient!.id, page)"
-                        :class="{ 'p-button-active': healthDataPage === page }"
-                      />
-                      <Button
-                        v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
-                        :key="page"
-                        :label="String(page)"
-                        @click="() => fetchHealthData(selectedPatient!.id, page)"
-                        :class="{ 'p-button-active': healthDataPage === page }"
-                      />
+                    <div v-if="data.isAbnormal && data.abnormalityReason && expandedHealthData.includes(data._id)" class="abnormal-alert">
+                      <i class="pi pi-exclamation-triangle pulse"></i>
+                      <span>{{ data.abnormalityReason }}</span>
+                    </div>
                   </div>
                 </div>
+                <div v-if="healthDataTotal > healthDataPerPage" class="health-data-pagination">
+                  <button
+                    class="pagination-button"
+                    @click="fetchHealthData(selectedPatient.id, healthDataPage - 1)"
+                    :disabled="healthDataPage === 1"
+                    aria-label="Previous page"
+                  >
+                    <i class="pi pi-angle-left"></i>
+                  </button>
+                  <button
+                    v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
+                    :key="page"
+                    class="pagination-button"
+                    :class="{ active: healthDataPage === page }"
+                    @click="fetchHealthData(selectedPatient.id, page)"
+                    :aria-label="`Go to page ${page}`"
+                  >
+                    {{ page }}
+                  </button>
+                  <button
+                    class="pagination-button"
+                    @click="fetchHealthData(selectedPatient.id, healthDataPage + 1)"
+                    :disabled="healthDataPage === Math.ceil(healthDataTotal / healthDataPerPage)"
+                    aria-label="Next page"
+                  >
+                    <i class="pi pi-angle-right"></i>
+                  </button>
+                </div>
               </div>
-            </template>
-          </Card>
-
+            </div>
+          </div>
           <div v-else class="no-selection">
             <i class="pi pi-user-plus"></i>
             <p>Select a patient to view their health data</p>
@@ -768,1069 +745,550 @@ watch(selectedPatient, async (newPatient) => {
   </div>
 </template>
 
-<style lang="scss" scoped>
-$primary: #9b87f5;
-$primary-light: rgba(155, 135, 245, 0.1);
-$primary-dark: #7e69ab;
-$neutral-100: #f7fafc;
-$neutral-500: #a0aec0;
-$neutral-600: #718096;
-$neutral-800: #2d3748;
-$radius-md: 8px;
-$radius-lg: 12px;
-$space-1: 0.25rem;
-$space-2: 0.5rem;
-$space-3: 1rem;
-$space-4: 1.5rem;
-$space-6: 3rem;
-$shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-$transition-fast: 0.2s ease;
-$transition-normal: 0.3s ease;
-$font-sm: 0.875rem;
-$font-md: 1rem;
-$font-lg: 1.125rem;
-$font-2xl: 1.5rem;
-
-.doctor-dashboard {
-  padding: $space-4;
-  background-color: $neutral-100;
-
-  .dashboard-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: $space-4;
-
-    .dashboard-title {
-      font-size: $font-2xl;
-      margin: 0;
-      color: $neutral-800;
-      font-weight: 600;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: $space-2;
-
-      .profile-button {
-        background-color: $primary;
-        border-color: $primary;
-        color: white;
-        border-radius: $radius-md;
-        padding: $space-2 $space-3;
-        font-size: $font-md;
-        transition: background-color $transition-fast;
-
-        &:hover {
-          background-color: $primary-dark;
-        }
-      }
-    }
-  }
-
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: $space-6;
-    gap: $space-3;
-
-    p {
-      color: $neutral-600;
-      font-size: $font-lg;
-    }
-  }
-
-  .dashboard-content {
-    display: flex;
-    flex-direction: column;
-    gap: $space-4;
-
-    .stats-container {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: $space-3;
-
-      .stat-card {
-        border-radius: $radius-lg;
-        transition: transform $transition-normal, box-shadow $transition-normal;
-
-        &:hover {
-          transform: translateY(-3px);
-          box-shadow: $shadow-lg;
-        }
-
-        :deep(.p-card-content) {
-          padding: $space-3;
-          display: flex;
-          align-items: center;
-          gap: $space-3;
-        }
-
-        .stat-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 50px;
-          height: 50px;
-          background-color: $primary-light;
-          border-radius: 12px;
-
-          i {
-            font-size: 24px;
-            color: $primary;
-          }
-        }
-
-        .stat-info {
-          h3 {
-            font-size: $font-2xl;
-            margin: 0 0 $space-1;
-            color: $neutral-800;
-          }
-
-          p {
-            font-size: $font-sm;
-            margin: 0;
-            color: $neutral-600;
-          }
-        }
-      }
-    }
-
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 1fr 2fr;
-      gap: $space-3;
-
-      .dashboard-left {
-        display: flex;
-        flex-direction: column;
-        gap: $space-3;
-
-        .recent-patients,
-        .upcoming-appointments {
-          border-radius: $radius-lg;
-
-          :deep(.p-card-header) {
-            padding: $space-3 $space-3 0;
-          }
-
-          :deep(.p-card-content) {
-            padding: $space-3;
-          }
-
-          .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            h2 {
-              font-size: $font-lg;
-              margin: 0;
-              color: $neutral-800;
-            }
-          }
-        }
-
-        .patients-list {
-          display: flex;
-          flex-direction: column;
-          gap: $space-2;
-
-          .patient-item {
-            display: flex;
-            align-items: center;
-            gap: $space-2;
-            padding: $space-2;
-            border-radius: $radius-md;
-            cursor: pointer;
-            transition: background-color $transition-fast;
-
-            &:hover {
-              background-color: $neutral-100;
-            }
-
-            &.active {
-              background-color: $primary-light;
-
-              .patient-name {
-                color: $primary-dark;
-              }
-            }
-
-            .patient-info {
-              flex: 1;
-
-              .patient-name {
-                font-size: $font-md;
-                font-weight: 600;
-                margin: 0 0 $space-1;
-                color: $neutral-800;
-              }
-
-              .patient-details {
-                display: flex;
-                align-items: center;
-                gap: $space-1;
-                font-size: $font-sm;
-                color: $neutral-600;
-                margin: 0;
-
-                .divider {
-                  font-size: 10px;
-                }
-              }
-            }
-
-            .patient-actions {
-              display: flex;
-              gap: $space-1;
-            }
-          }
-        }
-
-        .appointments-list {
-          display: flex;
-          flex-direction: column;
-          gap: $space-2;
-
-          .appointment-item {
-            padding: $space-2;
-            border-radius: $radius-md;
-            background-color: $neutral-100;
-
-            .appointment-date {
-              display: flex;
-              align-items: center;
-              gap: $space-1;
-              font-size: $font-sm;
-              color: $neutral-600;
-              margin-bottom: $space-1;
-
-              i {
-                font-size: 14px;
-              }
-            }
-
-            .appointment-patient {
-              display: flex;
-              align-items: center;
-              gap: $space-2;
-              margin-bottom: $space-1;
-
-              .patient-avatar {
-                width: 30px;
-                height: 30px;
-                border-radius: 50%;
-                object-fit: cover;
-              }
-
-              .patient-name {
-                font-size: $font-md;
-                font-weight: 500;
-                color: $neutral-800;
-              }
-            }
-
-            .appointment-actions {
-              display: flex;
-              justify-content: flex-end;
-            }
-          }
-        }
-      }
-
-      .dashboard-right {
-        height: calc(100vh - 200px);
-        overflow-y: auto;
-
-        .health-data {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .health-data-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .health-data-container {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1rem;
-        }
-
-        .health-data-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .health-data-item {
-          background: var(--surface-card);
-          border-radius: 8px;
-          padding: 1rem;
-          box-shadow: var(--shadow-1);
-        }
-
-        .data-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 0.75rem;
-        }
-
-        .timestamp {
-          color: var(--text-secondary);
-          font-size: 0.875rem;
-        }
-
-        .metrics-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          gap: 0.75rem;
-          margin-bottom: 0.75rem;
-        }
-
-        .metric-item {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .metric-label {
-          color: var(--text-secondary);
-          font-size: 0.875rem;
-        }
-
-        .metric-value {
-          font-weight: 600;
-          font-size: 1rem;
-        }
-
-        .metric-value.abnormal {
-          color: var(--red-500);
-        }
-
-        .abnormal-alert {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-top: 1rem;
-          padding: 0.5rem;
-          background: var(--red-50);
-          border-radius: 4px;
-          font-size: 0.875rem;
-        }
-
-        .health-data-pagination {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 0.5rem;
-          margin-top: 1rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--surface-border);
-        }
-
-        .no-selection {
-          text-align: center;
-          padding: 2rem;
-          color: var(--text-secondary);
-        }
-
-        .no-selection i {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-        }
-
-        .loading-state {
-          text-align: center;
-          padding: 2rem;
-        }
-
-        .health-data-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-        }
-
-        .device-filter {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-        }
-
-        .device-type-dropdown {
-          width: 200px;
-        }
-
-        .no-data {
-          text-align: center;
-          padding: 2rem;
-          color: var(--text-secondary);
-        }
-
-        .no-data i {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-        }
-      }
-    }
-  }
-
-  .no-data {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: $space-4;
-    color: $neutral-500;
-
-    i {
-      font-size: 24px;
-      margin-bottom: $space-2;
-    }
-
-    p {
-      margin: 0;
-      text-align: center;
-    }
-
-    &.large {
-      padding: $space-6;
-
-      i {
-        font-size: 32px;
-      }
-
-      p {
-        font-size: $font-lg;
-      }
-    }
-  }
-
-  .upcoming-appointments {
-    margin: 1rem 0;
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .appointments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .appointment-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: var(--surface-100);
-    transition: background-color 0.2s;
-  }
-
-  .appointment-item:hover {
-    background: var(--surface-200);
-  }
-
-  .appointment-date {
-    flex: 1;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-color);
-  }
-
-  .appointment-type {
-    flex: 1;
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-  }
-
-  :deep(.p-button-text) {
-    color: var(--primary-color);
-    font-size: 0.85rem;
-    padding: 0.3rem 0.8rem;
-  }
-
-  :deep(.p-button-text:hover) {
-    background: rgba(155, 135, 245, 0.1);
-  }
-
-  .loading-state,
-  .error-state,
-  .no-appointments {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    color: var(--text-color-secondary);
-  }
-
-  .loading-state p,
-  .error-state p,
-  .no-appointments p {
-    font-size: 0.9rem;
-    margin: 0;
-  }
-
-  .no-appointments i {
-    font-size: 2rem;
-    color: var(--text-color-secondary);
-  }
-
-  @media (max-width: 1200px) {
-    .dashboard-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: $space-2;
-
-      .header-actions {
-        align-self: flex-end;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-    }
-
-    .stats-container {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .dashboard-grid {
-      grid-template-columns: 1fr;
-
-      .dashboard-right {
-        .patient-data {
-          .patient-vitals {
-            grid-template-columns: 1fr;
-          }
-        }
-      }
-    }
-  }
-
-  @media (max-width: 768px) {
-    padding: $space-3;
-
-    .stats-container {
-      grid-template-columns: 1fr;
-    }
-
-    .dashboard-title {
-      font-size: $font-lg;
-    }
-
-    .header-actions {
-      width: 100%;
-      justify-content: space-between;
-
-      .profile-button {
-        width: 100%;
-        justify-content: center;
-      }
-    }
-  }
-
-  .health-data-content {
-    padding: 1rem;
-  }
-
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .device-selector {
-    margin: 1rem 0;
-    select {
-      padding: 0.5rem;
-      border: 1px solid var(--neutral-200);
-      border-radius: var(--radius-sm);
-      width: 200px;
-    }
-  }
-
-  .device-data-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .abnormal-section {
-    background: #fff8f8;
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-    margin-top: 1rem;
-  }
-
-  .abnormal-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .reason {
-    color: var(--error);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-  }
-
-  .patient-selection {
-    height: 400px;  /* Fixed height for the card */
-    overflow-y: auto;  /* Enable scrolling */
-    
-    .patients-list {
-      padding: $space-3;
-      
-      .patient-item {
-        display: flex;
-        align-items: center;
-        padding: $space-2;
-        margin-bottom: $space-2;
-        border-radius: $radius-md;
-        cursor: pointer;
-        transition: background-color $transition-normal;
-        
-        &:hover {
-          background-color: $primary-light;
-        }
-        
-        &.active {
-          background-color: $primary;
-          color: white;
-        }
-        
-        .patient-info {
-          flex: 1;
-          
-          .patient-name {
-            margin: 0;
-            font-size: $font-md;
-            font-weight: 600;
-          }
-          
-          .patient-details {
-            margin: 0;
-            font-size: $font-sm;
-            color: $neutral-600;
-            
-            .divider {
-              margin: 0 $space-2;
-            }
-          }
-        }
-      }
-      
-      .no-data {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: $space-4;
-        
-        i {
-          font-size: 3rem;
-          color: $neutral-500;
-          margin-bottom: $space-3;
-        }
-        
-        p {
-          margin: 0;
-          color: $neutral-600;
-        }
-      }
-    }
-    
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: $space-3;
-      
-      button {
-        margin: 0 $space-1;
-        
-        &:first-child,
-        &:last-child {
-          width: 32px;
-          height: 32px;
-        }
-        
-        &.p-button-active {
-          background-color: $primary;
-          color: white;
-        }
-      }
-    }
-  }
-
-  .no-data {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: $space-4;
-    color: $neutral-500;
-
-    i {
-      font-size: 24px;
-      margin-bottom: $space-2;
-    }
-
-    p {
-      margin: 0;
-      text-align: center;
-    }
-
-    &.large {
-      padding: $space-6;
-
-      i {
-        font-size: 32px;
-      }
-
-      p {
-        font-size: $font-lg;
-      }
-    }
-  }
-
-  .upcoming-appointments {
-    margin: 1rem 0;
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .appointments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .appointment-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: var(--surface-100);
-    transition: background-color 0.2s;
-  }
-
-  .appointment-item:hover {
-    background: var(--surface-200);
-  }
-
-  .appointment-date {
-    flex: 1;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-color);
-  }
-
-  .appointment-type {
-    flex: 1;
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-  }
-
-  :deep(.p-button-text) {
-    color: var(--primary-color);
-    font-size: 0.85rem;
-    padding: 0.3rem 0.8rem;
-  }
-
-  :deep(.p-button-text:hover) {
-    background: rgba(155, 135, 245, 0.1);
-  }
-
-  .loading-state,
-  .error-state,
-  .no-appointments {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    color: var(--text-color-secondary);
-  }
-
-  .loading-state p,
-  .error-state p,
-  .no-appointments p {
-    font-size: 0.9rem;
-    margin: 0;
-  }
-
-  .no-appointments i {
-    font-size: 2rem;
-    color: var(--text-color-secondary);
-  }
-
-  @media (max-width: 1200px) {
-    .dashboard-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: $space-2;
-
-      .header-actions {
-        align-self: flex-end;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-    }
-
-    .stats-container {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .dashboard-grid {
-      grid-template-columns: 1fr;
-
-      .dashboard-right {
-        .patient-data {
-          .patient-vitals {
-            grid-template-columns: 1fr;
-          }
-        }
-      }
-    }
-  }
-
-  @media (max-width: 768px) {
-    padding: $space-3;
-
-    .stats-container {
-      grid-template-columns: 1fr;
-    }
-
-    .dashboard-title {
-      font-size: $font-lg;
-    }
-
-    .header-actions {
-      width: 100%;
-      justify-content: space-between;
-
-      .profile-button {
-        width: 100%;
-        justify-content: center;
-      }
-    }
-  }
-
-  .health-data-content {
-    padding: 1rem;
-  }
-
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .device-selector {
-    margin: 1rem 0;
-    select {
-      padding: 0.5rem;
-      border: 1px solid var(--neutral-200);
-      border-radius: var(--radius-sm);
-      width: 200px;
-    }
-  }
-
-  .device-data-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .abnormal-section {
-    background: #fff8f8;
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-    margin-top: 1rem;
-  }
-
-  .abnormal-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .reason {
-    color: var(--error);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-  }
-
-  .patient-selection {
-    margin-bottom: 2rem;
-  }
-
-  .patients-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .patient-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .patient-item:hover {
-    background-color: var(--surface-hover);
-  }
-
-  .patient-item.active {
-    background-color: var(--surface-ground);
-  }
-
-  .patient-info {
-    flex: 1;
-  }
-
-  .patient-name {
-    margin: 0;
-    font-size: 1rem;
-  }
-
-  .patient-details {
-    margin: 0.25rem 0 0;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-  }
-
-  .divider {
-    margin: 0 0.5rem;
-    color: var(--text-secondary);
-  }
-
-  .pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .no-selection {
-    text-align: center;
-    padding: 2rem;
-    color: var(--text-secondary);
-  }
-
-  .no-selection i {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-  }
+<style scoped>
+:root {
+  --primary: #4f46e5;
+  --primary-dark: #3730a3;
+  --success: #22c55e;
+  --danger: #f43f5e;
+  --warning: #f97316;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --background: #ffffff;
+  --card-background: #ffffff;
+  --patient-card-background: #ffffff;
+  --border-color: #e5e7eb;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --hover-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
-.health-data-header {
+.doctor-dashboard {
+  padding: 1.5rem;
+  background: var(--background);
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 1rem;
+  background: var(--card-background);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Buttons */
+.button {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card-background);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.primary-button {
+  background: var(--primary);
+  color: white;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hover-shadow);
+}
+
+.text-button {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.text-button:hover {
+  background: rgba(79, 70, 229, 0.05);
+  transform: translateY(-1px);
+}
+
+.icon-button {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.icon-button:hover {
+  color: var(--primary);
+  transform: scale(1.05);
+}
+
+.button:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.button:active:after {
+  width: 150px;
+  height: 150px;
+}
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 1rem;
+  color: var(--text-secondary);
+}
+
+.loading-container p {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Stats Container */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--card-background);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hover-shadow);
+}
+
+.stat-icon {
+  font-size: 2rem;
+  color: var(--primary);
+  transition: transform 0.3s ease;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1);
+}
+
+.stat-info h3 {
+  font-size: 1.75rem;
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.stat-info p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0;
+  font-weight: 500;
+}
+
+.progress-bar {
+  height: 3px;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1.5rem;
+}
+
+/* Left Column */
+.dashboard-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Card */
+.card {
+  background: var(--card-background);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hover-shadow);
+}
+
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.device-filter {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.device-type-dropdown {
-  width: 200px;
-}
-
-.health-data-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
   padding: 1rem;
+  background: var(--card-background);
+}
+
+.card-header h2 {
+  font-size: 1.5rem;
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Patient Selection */
+.patient-selection {
+  background: var(--patient-card-background);
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.patients-list {
+  padding: 1rem;
+}
+
+.patient-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.3s ease;
+  animation: slideIn 0.4s ease;
+}
+
+.patient-item:hover {
+  background: rgba(79, 70, 229, 0.05);
+  transform: translateY(-1px);
+}
+
+.patient-item.active {
+  background: var(--primary);
+  color: white;
+}
+
+.patient-item.active .patient-name,
+.patient-item.active .patient-details {
+  color: white;
+}
+
+.patient-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+.patient-info {
+  flex: 1;
+}
+
+.patient-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.patient-details {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0;
+}
+
+.divider {
+  margin: 0 0.5rem;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.pagination-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.pagination-button:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.pagination-button.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Upcoming Appointments */
+.upcoming-appointments {
+  background: var(--card-background);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.appointments-list {
+  padding: 1rem;
+}
+
+.appointment-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--card-background);
+  margin-bottom: 0.75rem;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  animation: slideIn 0.4s ease;
+}
+
+.appointment-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hover-shadow);
+}
+
+.appointment-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+.first-appointment .appointment-status.status-completed {
+  width: 14px;
+  height: 7px;
+  border-radius: 3px;
+}
+
+.status-scheduled { background: var(--primary); }
+.status-completed { background: var(--success); }
+.status-cancelled { background: var(--danger); }
+
+.appointment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.appointment-date {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.appointment-type {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.appointment-reason {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Right Column */
+.dashboard-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.health-data {
+  background: var(--card-background);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.health-data-content {
+  padding: 1rem;
+}
+
+.health-data-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.health-data-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .health-data-item {
-  background: var(--surface-card);
+  background: var(--card-background);
   border-radius: 8px;
-  padding: 1rem;
-  box-shadow: var(--shadow-1);
+  padding: 0.75rem;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.health-data-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hover-shadow);
 }
 
 .data-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  cursor: pointer;
+  padding-bottom: 0.5rem;
+}
+
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.device-icon {
+  font-size: 1.25rem;
+  color: var(--primary);
+}
+
+.data-header h3 {
+  font-size: 1rem;
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .timestamp {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.toggle-icon {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.pi-chevron-up {
+  transform: rotate(180deg);
 }
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
+  padding: 0.75rem 0;
+  animation: slideDown 0.3s ease;
 }
 
 .metric-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  background: var(--card-background);
+  padding: 0.5rem;
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.metric-item:hover {
+  background: rgba(229, 231, 235, 0.5);
+  transform: translateY(-1px);
 }
 
 .metric-label {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  text-transform: capitalize;
+  font-weight: 500;
 }
 
 .metric-value {
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .metric-value.abnormal {
-  color: var(--red-500);
+  color: var(--danger);
 }
 
 .abnormal-alert {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   padding: 0.5rem;
-  background: var(--red-50);
-  border-radius: 4px;
+  background: rgba(244, 63, 94, 0.1);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--danger);
+  font-weight: 600;
+  animation: pulseAlert 2s infinite;
+}
+
+.abnormal-alert i {
+  font-size: 1rem;
 }
 
 .health-data-pagination {
@@ -1840,22 +1298,109 @@ $font-2xl: 1.5rem;
   gap: 0.5rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--surface-border);
+  border-top: 1px solid var(--border-color);
 }
 
+.no-data,
 .no-selection {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 2rem;
   color: var(--text-secondary);
+  background: var(--card-background);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
 }
 
+.no-data i,
 .no-selection i {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
 }
 
-.loading-state {
-  text-align: center;
-  padding: 2rem;
+.no-data p,
+.no-selection p {
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseAlert {
+  0% { background: rgba(244, 63, 94, 0.1); }
+  50% { background: rgba(244, 63, 94, 0.2); }
+  100% { background: rgba(244, 63, 94, 0.1); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-right {
+    height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .doctor-dashboard {
+    padding: 1rem;
+  }
+
+  .dashboard-header {
+    padding: 0.75rem;
+  }
+
+  .stats-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .card-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .appointment-item,
+  .patient-item,
+  .health-data-item {
+    padding: 0.5rem;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .pagination-button {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+  }
 }
 </style>
