@@ -220,7 +220,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import FormValidation from '@/components/form/FormValidation.vue';
+import FormValidation from '../../components/form/FormValidation.vue';
 import { useAuthStore } from '../../stores/auth';
 import { useToast } from 'primevue/usetoast';
 
@@ -301,7 +301,7 @@ const handleRegister = async () => {
       email: form.email,
       password: form.password,
       profilePicture: form.profilePicture || undefined,
-      role: form.role,
+      role: form.role as 'doctor' | 'patient',
     });
 
     toast.add({

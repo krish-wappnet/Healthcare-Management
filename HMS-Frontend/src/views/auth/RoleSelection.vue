@@ -34,7 +34,7 @@
   
   const continueAsPatient = async () => {
     try {
-      const redirectPath = await authStore.redirectBasedOnRole();
+      const redirectPath = await authStore.getRedirectPath();
       router.push(redirectPath);
     } catch (error) {
       toast.add({

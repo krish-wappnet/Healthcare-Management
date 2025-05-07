@@ -270,7 +270,9 @@ const updateAppointment = async () => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authStore.token}`,
       },
-    })
+    }
+    
+  )
 
     toast.add({
       severity: 'success',
@@ -282,12 +284,18 @@ const updateAppointment = async () => {
     showUpdateModal.value = false
     fetchAppointments(currentPage.value)
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: error.response?.data?.message || 'Failed to update appointment. Please try again.',
-      life: 3000,
-    })
+    let errorMessage = 'Failed to update appointment. Please try again.';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: errorMessage,
+        life: 3000,
+      });
   }
 }
 
@@ -320,12 +328,18 @@ const deleteAppointment = async () => {
     showDeleteDialog.value = false
     fetchAppointments(currentPage.value)
   } catch (error) {
+    let errorMessage = 'Failed to update appointment. Please try again.';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.response?.data?.message || 'Failed to delete appointment. Please try again.',
+      detail: errorMessage,
       life: 3000,
-    })
+    });
   }
 }
 

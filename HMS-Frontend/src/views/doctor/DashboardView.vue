@@ -344,7 +344,7 @@ const fetchPatients = async (page: number = 1) => {
       const profilePicture = user.profilePicture || 'https://via.placeholder.com/40';
       
       return {
-        id: patient._id || '',
+        id: patient.id || '',
         name: `${firstName} ${lastName}`.trim() || 'Unknown Patient',
         age: dateOfBirth ? dayjs().diff(dateOfBirth, 'year') : 0,
         gender: gender || 'Unknown',
@@ -609,7 +609,7 @@ watch(selectedPatient, async (newPatient) => {
                 <Button
                   v-for="page in totalPages"
                   :key="page"
-                  :label="page"
+                  label="page"
                   @click="goToPage(page)"
                   :class="{ 'p-button-active': currentPage === page }"
                 />
@@ -643,9 +643,9 @@ watch(selectedPatient, async (newPatient) => {
                   <p>Loading appointments...</p>
                 </div>
 
-                <div v-else-if="error" class="error-state">
-                  <p>{{ error }}</p>
-                </div>
+                  <div v-else-if="error" class="error-state">
+                    <p>{{ error }}</p>
+                  </div>
 
                 <div v-else class="appointments-list">
                   <div
@@ -718,7 +718,7 @@ watch(selectedPatient, async (newPatient) => {
 
                       <div class="metrics-grid">
                         <div v-for="(value, metric) in data.metrics" :key="metric" class="metric-item">
-                          <span class="metric-label">{{ metric.replace(/([A-Z])/g, ' $1').trim() }}:</span>
+                          <span class="metric-label">{{ String(metric).replace(/([A-Z])/g, ' $1').trim() }}:</span>
                           <span class="metric-value" :class="{ 'abnormal': data.isAbnormal }">{{ value }}</span>
                         </div>
                       </div>
@@ -732,22 +732,26 @@ watch(selectedPatient, async (newPatient) => {
 
                   <div v-if="healthDataTotal > healthDataPerPage" class="health-data-pagination">
                     <Button
-                      icon="pi pi-angle-left"
-                      @click="() => fetchHealthData(selectedPatient.id, healthDataPage - 1)"
-                      :disabled="healthDataPage === 1"
-                    />
-                    <Button
                       v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
                       :key="page"
-                      :label="page"
-                      @click="() => fetchHealthData(selectedPatient.id, page)"
+                      :label="String(page)"
+                      @click="() => fetchHealthData(selectedPatient!.id, page)"
                       :class="{ 'p-button-active': healthDataPage === page }"
                     />
                     <Button
-                      icon="pi pi-angle-right"
-                      @click="() => fetchHealthData(selectedPatient.id, healthDataPage + 1)"
-                      :disabled="healthDataPage === Math.ceil(healthDataTotal / healthDataPerPage)"
-                    />
+                        v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
+                        :key="page"
+                        :label="String(page)"
+                        @click="() => fetchHealthData(selectedPatient!.id, page)"
+                        :class="{ 'p-button-active': healthDataPage === page }"
+                      />
+                      <Button
+                        v-for="page in Math.ceil(healthDataTotal / healthDataPerPage)"
+                        :key="page"
+                        :label="String(page)"
+                        @click="() => fetchHealthData(selectedPatient!.id, page)"
+                        :class="{ 'p-button-active': healthDataPage === page }"
+                      />
                   </div>
                 </div>
               </div>

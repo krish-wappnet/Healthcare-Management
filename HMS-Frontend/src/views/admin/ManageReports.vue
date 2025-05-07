@@ -103,7 +103,7 @@
             <div class="tab-content" v-for="(tab, index) in tabs" :key="tab" :id="`tab-panel-${index}`" v-show="activeModalTab === index" role="tabpanel">
               <!-- Patient Information -->
               <div v-if="index === 0" class="section">
-                <div class="section-header" @click="toggleSection('patient')" role="button" tabindex="0" @keydown.enter="toggleSection('patient')" aria-expanded="sections.patient">
+                <div class="section-header" @click="toggleSection('patient')" role="button" tabindex="0" @keydown.enter="toggleSection('patient')" :aria-expanded="sections.patient">
                   <h3><i class="pi pi-user section-icon patient-icon"></i> Patient Information</h3>
                   <i :class="sections.patient ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -118,7 +118,7 @@
               </div>
               <!-- Doctor Information -->
               <div v-if="index === 1" class="section">
-                <div class="section-header" @click="toggleSection('doctor')" role="button" tabindex="0" @keydown.enter="toggleSection('doctor')" aria-expanded="sections.doctor">
+                <div class="section-header" @click="toggleSection('doctor')" role="button" tabindex="0" @keydown.enter="toggleSection('doctor')" :aria-expanded="sections.doctor">
                   <h3><i class="pi pi-id-card section-icon doctor-icon"></i> Doctor Information</h3>
                   <i :class="sections.doctor ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -131,7 +131,7 @@
               </div>
               <!-- Appointment Information -->
               <div v-if="index === 2" class="section">
-                <div class="section-header" @click="toggleSection('appointment')" role="button" tabindex="0" @keydown.enter="toggleSection('appointment')" aria-expanded="sections.appointment">
+                <div class="section-header" @click="toggleSection('appointment')" role="button" tabindex="0" @keydown.enter="toggleSection('appointment')" :aria-expanded="sections.appointment">
                   <h3><i class="pi pi-calendar section-icon appointment-icon"></i> Appointment Information</h3>
                   <i :class="sections.appointment ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -144,7 +144,7 @@
               </div>
               <!-- Report Details -->
               <div v-if="index === 3" class="section">
-                <div class="section-header" @click="toggleSection('report')" role="button" tabindex="0" @keydown.enter="toggleSection('report')" aria-expanded="sections.report">
+                <div class="section-header" @click="toggleSection('report')" role="button" tabindex="0" @keydown.enter="toggleSection('report')" :aria-expanded="sections.report">
                   <h3><i class="pi pi-file section-icon report-icon"></i> Report Details</h3>
                   <i :class="sections.report ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -159,7 +159,7 @@
               </div>
               <!-- Medications -->
               <div v-if="index === 4" class="section">
-                <div class="section-header" @click="toggleSection('medications')" role="button" tabindex="0" @keydown.enter="toggleSection('medications')" aria-expanded="sections.medications">
+                <div class="section-header" @click="toggleSection('medications')" role="button" tabindex="0" @keydown.enter="toggleSection('medications')" :aria-expanded="sections.medications">
                   <h3><i class="pi pi-tablets section-icon medications-icon"></i> Medications</h3>
                   <i :class="sections.medications ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -173,7 +173,7 @@
               </div>
               <!-- Test Results -->
               <div v-if="index === 5" class="section">
-                <div class="section-header" @click="toggleSection('testResults')" role="button" tabindex="0" @keydown.enter="toggleSection('testResults')" aria-expanded="sections.testResults">
+                <div class="section-header" @click="toggleSection('testResults')" role="button" tabindex="0" @keydown.enter="toggleSection('testResults')" :aria-expanded="sections.testResults">
                   <h3><i class="pi pi-chart-line section-icon test-results-icon"></i> Test Results</h3>
                   <i :class="sections.testResults ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -187,7 +187,7 @@
               </div>
               <!-- Vital Signs -->
               <div v-if="index === 6" class="section">
-                <div class="section-header" @click="toggleSection('vitalSigns')" role="button" tabindex="0" @keydown.enter="toggleSection('vitalSigns')" aria-expanded="sections.vitalSigns">
+                <div class="section-header" @click="toggleSection('vitalSigns')" role="button" tabindex="0" @keydown.enter="toggleSection('vitalSigns')" :aria-expanded="sections.vitalSigns">
                   <h3><i class="pi pi-heart section-icon vital-signs-icon"></i> Vital Signs</h3>
                   <i :class="sections.vitalSigns ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
                 </div>
@@ -262,7 +262,18 @@ const selectedReport = ref<any>({})
 const reportIdToDelete = ref<string | null>(null)
 const activeModalTab = ref(0)
 const tabs = ['Patient', 'Doctor', 'Appointment', 'Report', 'Medications', 'Test Results', 'Vital Signs']
-const sections = ref({
+
+type SectionKey =
+  | 'patient'
+  | 'doctor'
+  | 'appointment'
+  | 'report'
+  | 'medications'
+  | 'testResults'
+  | 'vitalSigns';
+
+
+const sections = ref<Record<SectionKey, boolean>>({
   patient: true,
   doctor: true,
   appointment: true,
@@ -270,7 +281,7 @@ const sections = ref({
   medications: true,
   testResults: true,
   vitalSigns: true,
-})
+});
 
 // Computed
 const totalPages = computed(() => Math.ceil(total.value / limit.value))
@@ -356,9 +367,10 @@ const openDetailsModal = (report: any) => {
 }
 
 // Toggle section
-const toggleSection = (section: string) => {
-  sections.value[section] = !sections.value[section]
-}
+const toggleSection = (section: SectionKey) => {
+  sections.value[section] = !sections.value[section];
+};
+
 
 // Confirm delete
 const confirmDelete = (id: string) => {
@@ -389,12 +401,18 @@ const deleteReport = async () => {
     showDeleteDialog.value = false
     fetchReports(currentPage.value)
   } catch (error) {
+    let errorMessage = 'Failed to update appointment. Please try again.';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.response?.data?.message || 'Failed to delete medical report. Please try again.',
+      detail: errorMessage,
       life: 3000,
-    })
+    });
   }
 }
 

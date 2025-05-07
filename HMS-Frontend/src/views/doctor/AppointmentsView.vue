@@ -99,6 +99,11 @@ const statusOptions = [
   { label: 'Cancelled', value: 'cancelled' },
 ];
 
+
+const openMeetingLink = (link: string) => {
+  if (link) window.open(link, '_blank');
+};
+
 // Fetch doctor ID
 const fetchDoctorId = async () => {
   try {
@@ -383,14 +388,14 @@ onMounted(async () => {
                 icon="pi pi-video"
                 text
                 @click="generateMeetingLink(appointment._id)"
-                :disabled="appointment.meetingLink"
+                :disabled="!Boolean(appointment.meetingLink)"
               />
               <Button
                 v-if="appointment.meetingLink"
                 label="Join Meeting"
                 icon="pi pi-external-link"
                 text
-                @click="window.open(appointment.meetingLink, '_blank')"
+                @click="openMeetingLink(appointment.meetingLink)"
               />
             </div>
           </div>
@@ -428,27 +433,27 @@ onMounted(async () => {
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">Full Name:</span>
-              <span class="value">{{ selectedPatient.value?.user.firstName }} {{ selectedPatient.value?.user.lastName }}</span>
+              <span class="value">{{ selectedPatient?.user.firstName }} {{ selectedPatient?.user.lastName }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Email:</span>
-              <span class="value">{{ selectedPatient.value?.user.email }}</span>
+              <span class="value">{{ selectedPatient?.user.email }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Phone:</span>
-              <span class="value">{{ selectedPatient.value?.phone }}</span>
+              <span class="value">{{ selectedPatient?.phone }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Date of Birth:</span>
-              <span class="value">{{ selectedPatient.value?.dateOfBirth ? dayjs(selectedPatient.value.dateOfBirth).format('MMMM D, YYYY') : 'N/A' }}</span>
+              <span class="value">{{ selectedPatient?.dateOfBirth ? dayjs(selectedPatient?.dateOfBirth).format('MMMM D, YYYY') : 'N/A' }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Gender:</span>
-              <span class="value">{{ selectedPatient.value?.gender }}</span>
+              <span class="value">{{ selectedPatient?.gender }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Blood Type:</span>
-              <span class="value">{{ selectedPatient.value?.bloodType }}</span>
+              <span class="value">{{ selectedPatient?.bloodType }}</span>
             </div>
           </div>
         </div>
@@ -459,23 +464,23 @@ onMounted(async () => {
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">Height:</span>
-              <span class="value">{{ selectedPatient.value?.height }} cm</span>
+              <span class="value">{{ selectedPatient?.height }} cm</span>
             </div>
             <div class="detail-item">
               <span class="label">Weight:</span>
-              <span class="value">{{ selectedPatient.value?.weight }} kg</span>
+              <span class="value">{{ selectedPatient?.weight }} kg</span>
             </div>
             <div class="detail-item">
               <span class="label">Allergies:</span>
-              <span class="value">{{ selectedPatient.value?.allergies?.join(', ') || 'None' }}</span>
+              <span class="value">{{ selectedPatient?.allergies?.join(', ') || 'None' }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Medications:</span>
-              <span class="value">{{ selectedPatient.value?.medications?.join(', ') || 'None' }}</span>
+              <span class="value">{{ selectedPatient?.medications?.join(', ') || 'None' }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Chronic Conditions:</span>
-              <span class="value">{{ selectedPatient.value?.chronicConditions?.join(', ') || 'None' }}</span>
+              <span class="value">{{ selectedPatient?.chronicConditions?.join(', ') || 'None' }}</span>
             </div>
           </div>
         </div>
@@ -486,15 +491,15 @@ onMounted(async () => {
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">Name:</span>
-              <span class="value">{{ selectedPatient.value?.emergencyContactName }}</span>
+              <span class="value">{{ selectedPatient?.emergencyContactName }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Phone:</span>
-              <span class="value">{{ selectedPatient.value?.emergencyContactPhone }}</span>
+              <span class="value">{{ selectedPatient?.emergencyContactPhone }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Relation:</span>
-              <span class="value">{{ selectedPatient.value?.emergencyContactRelation }}</span>
+              <span class="value">{{ selectedPatient?.emergencyContactRelation }}</span>
             </div>
           </div>
         </div>
@@ -505,23 +510,23 @@ onMounted(async () => {
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">Address:</span>
-              <span class="value">{{ selectedPatient.value?.address }}</span>
+              <span class="value">{{ selectedPatient?.address }}</span>
             </div>
             <div class="detail-item">
               <span class="label">City:</span>
-              <span class="value">{{ selectedPatient.value?.city }}</span>
+              <span class="value">{{ selectedPatient?.city }}</span>
             </div>
             <div class="detail-item">
               <span class="label">State:</span>
-              <span class="value">{{ selectedPatient.value?.state }}</span>
+              <span class="value">{{ selectedPatient?.state }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Zip Code:</span>
-              <span class="value">{{ selectedPatient.value?.zipCode }}</span>
+              <span class="value">{{ selectedPatient?.zipCode }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Country:</span>
-              <span class="value">{{ selectedPatient.value?.country }}</span>
+              <span class="value">{{ selectedPatient?.country }}</span>
             </div>
           </div>
         </div>
@@ -532,11 +537,11 @@ onMounted(async () => {
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">Provider:</span>
-              <span class="value">{{ selectedPatient.value?.insuranceProvider }}</span>
+              <span class="value">{{ selectedPatient?.insuranceProvider }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Policy Number:</span>
-              <span class="value">{{ selectedPatient.value?.insurancePolicyNumber }}</span>
+              <span class="value">{{ selectedPatient?.insurancePolicyNumber }}</span>
             </div>
           </div>
         </div>

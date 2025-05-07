@@ -94,7 +94,7 @@
           </div>
           <div class="modal-content">
             <div class="section">
-              <div class="section-header" @click="toggleSection('patient')" role="button" tabindex="0" @keydown.enter="toggleSection('patient')" aria-expanded="sections.patient">
+              <div class="section-header" @click="toggleSection('patient')" role="button" tabindex="0" @keydown.enter="toggleSection('patient')" :aria-expanded="sections.patient">
                 <h3><i class="pi pi-user section-icon patient-icon"></i> Patient Information</h3>
                 <i :class="sections.patient ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
               </div>
@@ -108,7 +108,7 @@
               </div>
             </div>
             <div class="section">
-              <div class="section-header" @click="toggleSection('device')" role="button" tabindex="0" @keydown.enter="toggleSection('device')" aria-expanded="sections.device">
+              <div class="section-header" @click="toggleSection('device')" role="button" tabindex="0" @keydown.enter="toggleSection('device')" :aria-expanded="sections.device">
                 <h3><i class="pi pi-cog section-icon device-icon"></i> Device Information</h3>
                 <i :class="sections.device ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
               </div>
@@ -126,13 +126,13 @@
               </div>
             </div>
             <div class="section">
-              <div class="section-header" @click="toggleSection('data')" role="button" tabindex="0" @keydown.enter="toggleSection('data')" aria-expanded="sections.data">
+              <div class="section-header" @click="toggleSection('data')" role="button" tabindex="0" @keydown.enter="toggleSection('data')" :aria-expanded="sections.data">
                 <h3><i class="pi pi-chart-line section-icon data-icon"></i> Device Data</h3>
                 <i :class="sections.data ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
               </div>
               <div v-if="sections.data" class="section-content">
                 <p v-for="(value, key) in selectedDevice.data" :key="key">
-                  <strong>{{ formatDataKey(key) }}:</strong> {{ formatDataValue(key, value) }}
+                  <strong>{{ formatDataKey(key.toLocaleString()) }}:</strong> {{ formatDataValue(key.toLocaleString(), value) }}
                 </p>
               </div>
             </div>
@@ -196,11 +196,14 @@ const showDetailsModal = ref(false)
 const showDeleteDialog = ref(false)
 const selectedDevice = ref<any>({})
 const deviceIdToDelete = ref<string | null>(null)
-const sections = ref({
+  type SectionKey = 'patient' | 'device' | 'data';
+
+const sections = ref<Record<SectionKey, boolean>>({
   patient: true,
   device: true,
   data: true,
-})
+});
+
 
 // Computed
 const totalPages = computed(() => Math.ceil(total.value / limit.value))
@@ -319,9 +322,8 @@ const openDetailsModal = (device: any) => {
   }
 }
 
-// Toggle section
-const toggleSection = (section: string) => {
-  sections.value[section] = !sections.value[section]
+const toggleSection = (section: SectionKey) => {
+  sections.value[section] = !sections.value[section];
 }
 
 // Confirm delete
@@ -353,12 +355,18 @@ const deleteDevice = async () => {
     showDeleteDialog.value = false
     fetchDevices(currentPage.value)
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: error.response?.data?.message || 'Failed to delete device record. Please try again.',
-      life: 3000,
-    })
+    let errorMessage = 'Failed to update appointment. Please try again.';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: errorMessage,
+        life: 3000,
+      });
   }
 }
 
@@ -947,5 +955,5 @@ onMounted(() => {
       }
     }
   }
-}
+
 </style>

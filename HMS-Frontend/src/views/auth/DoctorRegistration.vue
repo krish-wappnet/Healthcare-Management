@@ -457,7 +457,7 @@ const form = reactive({
   }), {} as Record<string, { start: string; end: string; isAvailable: boolean }>),
 });
 
-const errors = reactive({
+const errors: Record<string, string> = {
   user: '',
   specialization: '',
   licenseNumber: '',
@@ -469,7 +469,7 @@ const errors = reactive({
   consultationFee: '',
   isAvailableForAppointments: '',
   workingHours: '',
-});
+};
 
 const qualificationInput = ref('');
 const isLoading = ref(false);
@@ -611,7 +611,8 @@ const handleDoctorRegistration = async () => {
   console.log('Form is valid. Submitting...');
   console.log('Set isLoading to true');
 
-  try {
+    try {
+    // Format working hours
     const formattedWorkingHours = days.reduce((acc, day) => ({
       ...acc,
       [day]: {
@@ -621,6 +622,7 @@ const handleDoctorRegistration = async () => {
       }
     }), {} as Record<string, { start: string; end: string; isAvailable: boolean }>);
 
+    // Prepare the payload
     const payload = {
       user: form.user,
       specialization: form.specialization,
@@ -636,10 +638,11 @@ const handleDoctorRegistration = async () => {
 
     console.log('Sending payload:', payload);
 
+    // Send the API request
     const response = await axios.post('http://localhost:3000/doctors', payload);
     console.log('Response:', response.data);
 
-    // Reset form
+    // Reset the form
     form.user = '';
     form.specialization = '';
     form.licenseNumber = '';
@@ -655,12 +658,12 @@ const handleDoctorRegistration = async () => {
       form.workingHours[day].isAvailable = false;
     });
 
-    // Clear errors
+    // Clear the errors
     Object.keys(errors).forEach(key => {
       errors[key] = '';
     });
 
-    // Reset qualification input
+    // Reset the qualification input
     qualificationInput.value = '';
 
     // Show success message
@@ -671,14 +674,18 @@ const handleDoctorRegistration = async () => {
       life: 5000,
     });
 
-    // Redirect to doctor profile
+    // Redirect to the doctor profile
     router.push('/doctor/profile');
-
+  } catch (error: any) {
+    // Handle the error
     console.error('API call failed:', error);
+
     const errorMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
       'An error occurred during doctor registration';
+
+    // Show error message
     toast.add({
       severity: 'error',
       summary: 'Doctor Registration Failed',
@@ -686,9 +693,11 @@ const handleDoctorRegistration = async () => {
       life: 5000,
     });
   } finally {
+    // Reset loading state
     isLoading.value = false;
     console.log('Set isLoading to false');
   }
+
 };
 </script>
   
