@@ -67,8 +67,8 @@
 
           <!-- Office Details -->
           <div class="office-details">
-            <p class="office-address">📍 {{ doctor.officeAddress }}</p>
-            <p class="office-phone">📞 {{ doctor.officePhone }}</p>
+            <p class="office-address"> {{ doctor.officeAddress }}</p>
+            <p class="office-phone"> {{ doctor.officePhone }}</p>
           </div>
 
           <!-- Consultation Fee -->

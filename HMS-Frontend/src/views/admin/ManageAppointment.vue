@@ -1,11 +1,12 @@
 <template>
-  <div class="admin-dashboard">
+  <div class="appointments-dashboard">
     <Toast />
+    <!-- Main Content -->
     <div class="dashboard-content">
-      <!-- Role Filter Tabs -->
-      <div class="role-tabs">
+      <!-- Status Filter Tabs -->
+      <div class="status-tabs">
         <button
-          v-for="(tab, index) in ['All', 'Doctors', 'Patients']"
+          v-for="(tab, index) in ['All', 'Scheduled', 'Cancelled', 'Completed']"
           :key="tab"
           :class="{ 'active-tab': activeTab === index }"
           @click="activeTab = index"
@@ -15,48 +16,46 @@
         </button>
       </div>
 
-      <!-- Users Table -->
+      <!-- Appointments Table -->
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>Email</th>
-              <th>First Name</th>
-              <th>Last Name</th>
-              <th>Role</th>
-              <th>Active</th>
-              <th>Email Verified</th>
-              <th>Created At</th>
+              <th>Patient Name</th>
+              <th>Doctor Name</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Paid</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in filteredUsers" :key="user._id">
-              <td>{{ user.email }}</td>
-              <td>{{ user.firstName }}</td>
-              <td>{{ user.lastName }}</td>
+            <tr v-for="appointment in filteredAppointments" :key="appointment._id">
+              <td>{{ appointment.patient.emergencyContactName }}</td>
+              <td>{{ appointment.doctor.bio.split(' ')[1] }} {{ appointment.doctor.bio.split(' ')[2] }}</td>
+              <td>{{ formatDate(appointment.date) }}</td>
+              <td>{{ appointment.startTime }} - {{ appointment.endTime }}</td>
+              <td>{{ appointment.type }}</td>
               <td>
-                <span :class="['role-badge', user.role]">{{ user.role }}</span>
+                <span :class="['status-badge', appointment.status]">{{ appointment.status }}</span>
               </td>
               <td>
-                <i :class="user.isActive ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
+                <i :class="appointment.isPaid ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
               </td>
-              <td>
-                <i :class="user.emailVerified ? 'pi pi-check active' : 'pi pi-times inactive'"></i>
-              </td>
-              <td>{{ formatDate(user.createdAt) }}</td>
               <td>
                 <Button
                   icon="pi pi-pencil"
                   class="p-button-rounded p-button-text p-button-primary"
-                  @click="openUpdateModal(user)"
-                  aria-label="Edit user"
+                  @click="openUpdateModal(appointment)"
+                  aria-label="Edit appointment"
                 />
                 <Button
                   icon="pi pi-trash"
                   class="p-button-rounded p-button-text p-button-danger"
-                  @click="confirmDelete(user._id)"
-                  aria-label="Delete user"
+                  @click="confirmDelete(appointment._id)"
+                  aria-label="Delete appointment"
                 />
               </td>
             </tr>
@@ -86,55 +85,36 @@
       <!-- Modals Backdrop -->
       <div v-if="showUpdateModal || showDeleteDialog" class="modal-backdrop"></div>
 
-      <!-- Update User Modal -->
+      <!-- Update Appointment Modal -->
       <div class="modal-wrapper" v-if="showUpdateModal">
         <div class="modal update-modal">
           <div class="modal-header">
-            <h2>Update User</h2>
+            <h2>Update Appointment</h2>
             <button class="modal-close" @click="showUpdateModal = false">
               <i class="pi pi-times"></i>
             </button>
           </div>
           <div class="modal-content">
-            <form @submit.prevent="updateUser">
+            <form @submit.prevent="updateAppointment">
               <div class="form-group">
-                <label for="firstName">First Name</label>
-                <input
-                  type="text"
-                  id="firstName"
-                  v-model="selectedUser.firstName"
-                  class="input-field"
-                  required
-                >
-              </div>
-              <div class="form-group">
-                <label for="lastName">Last Name</label>
-                <input
-                  type="text"
-                  id="lastName"
-                  v-model="selectedUser.lastName"
-                  class="input-field"
-                  required
-                >
-              </div>
-              <div class="form-group">
-                <label for="role">Role</label>
+                <label for="status">Status</label>
                 <select
-                  id="role"
-                  v-model="selectedUser.role"
+                  id="status"
+                  v-model="selectedAppointment.status"
                   class="input-field select-field"
                   required
                 >
-                  <option value="doctor">Doctor</option>
-                  <option value="patient">Patient</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="completed">Completed</option>
                 </select>
               </div>
               <div class="form-group switch-group">
-                <label for="isActive">Active</label>
+                <label for="isPaid">Paid</label>
                 <div class="custom-switch">
                   <input
-                    id="isActive"
-                    v-model="selectedUser.isActive"
+                    id="isPaid"
+                    v-model="selectedAppointment.isPaid"
                     type="checkbox"
                   >
                   <span class="slider"></span>
@@ -146,7 +126,7 @@
             <button class="button text-button" @click="showUpdateModal = false">
               Cancel
             </button>
-            <button class="button primary-button" @click="updateUser">
+            <button class="button primary-button" @click="updateAppointment">
               Save Changes
             </button>
           </div>
@@ -157,7 +137,7 @@
       <div class="modal-wrapper" v-if="showDeleteDialog">
         <div class="modal delete-dialog">
           <div class="modal-header">
-            <h2>Delete User</h2>
+            <h2>Delete Appointment</h2>
             <button class="modal-close" @click="showDeleteDialog = false">
               <i class="pi pi-times"></i>
             </button>
@@ -166,7 +146,7 @@
             <div class="confirmation-content">
               <i class="pi pi-exclamation-triangle warning-icon"></i>
               <span class="confirmation-text">
-                Are you sure you want to delete this user? This action cannot be undone.
+                Are you sure you want to delete this appointment? This action cannot be undone.
               </span>
             </div>
           </div>
@@ -174,8 +154,8 @@
             <button class="button text-button" @click="showDeleteDialog = false">
               Cancel
             </button>
-            <button class="button danger-button" @click="deleteUser">
-              Delete User
+            <button class="button danger-button" @click="deleteAppointment">
+              Delete Appointment
             </button>
           </div>
         </div>
@@ -194,7 +174,7 @@ import Toast from 'primevue/toast'
 
 const toast = useToast()
 const authStore = useAuthStore()
-const users = ref<any[]>([])
+const appointments = ref<any[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const limit = ref(10)
@@ -202,45 +182,45 @@ const total = ref(0)
 const activeTab = ref(0)
 const showUpdateModal = ref(false)
 const showDeleteDialog = ref(false)
-const selectedUser = ref<any>({})
-const userIdToDelete = ref<string | null>(null)
-const isSidebarCollapsed = ref(false)
+const selectedAppointment = ref<any>({})
+const appointmentIdToDelete = ref<string | null>(null)
 
 // Computed
 const totalPages = computed(() => Math.ceil(total.value / limit.value))
 
-const filteredUsers = computed(() => {
-  if (activeTab.value === 1) return users.value.filter(user => user.role === 'doctor')
-  if (activeTab.value === 2) return users.value.filter(user => user.role === 'patient')
-  return users.value
+const filteredAppointments = computed(() => {
+  if (activeTab.value === 1) return appointments.value.filter(appointment => appointment.status === 'scheduled')
+  if (activeTab.value === 2) return appointments.value.filter(appointment => appointment.status === 'cancelled')
+  if (activeTab.value === 3) return appointments.value.filter(appointment => appointment.status === 'completed')
+  return appointments.value
 })
 
-// Fetch users
-const fetchUsers = async (page: number) => {
+// Fetch appointments
+const fetchAppointments = async (page: number) => {
   loading.value = true
   try {
     if (!authStore.token) {
       throw new Error('No auth token found')
     }
 
-    const response = await apiClient.get(`/users?page=${page}&limit=${limit.value}`, {
+    const response = await apiClient.get(`/appointments?page=${page}&limit=${limit.value}`, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authStore.token}`,
       },
     })
 
-    const { data: userData, total: totalUsers, page: currentPageNum, limit: limitNum } = response.data
-    users.value = userData
-    total.value = totalUsers
+    const { data: appointmentData, total: totalAppointments, page: currentPageNum, limit: limitNum } = response.data
+    appointments.value = appointmentData
+    total.value = totalAppointments
     currentPage.value = currentPageNum
     limit.value = limitNum
   } catch (error) {
-    console.error('Error fetching users:', error)
+    console.error('Error fetching appointments:', error)
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: 'Failed to load users. Please try again.',
+      detail: 'Failed to load appointments. Please try again.',
       life: 3000,
     })
   } finally {
@@ -251,7 +231,7 @@ const fetchUsers = async (page: number) => {
 // Change page
 const changePage = (page: number) => {
   if (page >= 1 && page <= totalPages.value) {
-    fetchUsers(page)
+    fetchAppointments(page)
   }
 }
 
@@ -265,31 +245,27 @@ const formatDate = (date: string) => {
 }
 
 // Open update modal
-const openUpdateModal = (user: any) => {
-  selectedUser.value = {
-    ...user,
-    id: user._id
+const openUpdateModal = (appointment: any) => {
+  selectedAppointment.value = {
+    ...appointment,
+    id: appointment._id
   }
   showUpdateModal.value = true
 }
 
-// Update user
-const updateUser = async () => {
+// Update appointment
+const updateAppointment = async () => {
   try {
-    if (!authStore.token || !selectedUser.value._id) {
-      throw new Error('No auth token or user ID found')
+    if (!authStore.token || !selectedAppointment.value._id) {
+      throw new Error('No auth token or appointment ID found')
     }
 
     const updateData = {
-      firstName: selectedUser.value.firstName,
-      lastName: selectedUser.value.lastName,
-      email: selectedUser.value.email,
-      role: selectedUser.value.role,
-      isActive: selectedUser.value.isActive,
-      emailVerified: selectedUser.value.emailVerified
+      status: selectedAppointment.value.status,
+      isPaid: selectedAppointment.value.isPaid,
     }
 
-    const response = await apiClient.patch(`/users/${selectedUser.value._id}`, updateData, {
+    await apiClient.patch(`/appointments/${selectedAppointment.value._id}`, updateData, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authStore.token}`,
@@ -299,17 +275,17 @@ const updateUser = async () => {
     toast.add({
       severity: 'success',
       summary: 'Success',
-      detail: 'User updated successfully.',
+      detail: 'Appointment updated successfully.',
       life: 3000,
     })
 
     showUpdateModal.value = false
-    fetchUsers(currentPage.value)
+    fetchAppointments(currentPage.value)
   } catch (error) {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.response?.data?.message || 'Failed to update user. Please try again.',
+      detail: error.response?.data?.message || 'Failed to update appointment. Please try again.',
       life: 3000,
     })
   }
@@ -317,18 +293,18 @@ const updateUser = async () => {
 
 // Confirm delete
 const confirmDelete = (id: string) => {
-  userIdToDelete.value = id
+  appointmentIdToDelete.value = id
   showDeleteDialog.value = true
 }
 
-// Delete user
-const deleteUser = async () => {
+// Delete appointment
+const deleteAppointment = async () => {
   try {
-    if (!authStore.token || !userIdToDelete.value) {
-      throw new Error('No auth token or user ID found')
+    if (!authStore.token || !appointmentIdToDelete.value) {
+      throw new Error('No auth token or appointment ID found')
     }
 
-    await apiClient.delete(`/users/${userIdToDelete.value}`, {
+    await apiClient.delete(`/appointments/${appointmentIdToDelete.value}`, {
       headers: {
         Authorization: `Bearer ${authStore.token}`,
       },
@@ -337,17 +313,17 @@ const deleteUser = async () => {
     toast.add({
       severity: 'success',
       summary: 'Success',
-      detail: 'User deleted successfully.',
+      detail: 'Appointment deleted successfully.',
       life: 3000,
     })
 
     showDeleteDialog.value = false
-    fetchUsers(currentPage.value)
+    fetchAppointments(currentPage.value)
   } catch (error) {
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.response?.data?.message || 'Failed to delete user. Please try again.',
+      detail: error.response?.data?.message || 'Failed to delete appointment. Please try again.',
       life: 3000,
     })
   }
@@ -355,7 +331,7 @@ const deleteUser = async () => {
 
 // Initial fetch
 onMounted(() => {
-  fetchUsers(currentPage.value)
+  fetchAppointments(currentPage.value)
 })
 </script>
 
@@ -370,108 +346,20 @@ onMounted(() => {
   --text-secondary: #6c757d;
   --background: #f4f4f9;
   --border-color: #dee2e6;
-  --sidebar-width: 250px;
-  --sidebar-collapsed-width: 60px;
 }
 
-.admin-dashboard {
+.appointments-dashboard {
   display: flex;
   min-height: 100vh;
   background: var(--background);
   font-family: 'Arial', sans-serif;
 }
 
-.sidebar {
-  width: var(--sidebar-width);
-  background: #ffffff;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-  transition: width 0.3s ease;
-  position: fixed;
-  height: 100%;
-  overflow-y: auto;
-  z-index: 1000;
-
-  &.sidebar-collapsed {
-    width: var(--sidebar-collapsed-width);
-
-    .sidebar-header h2,
-    .nav-item span {
-      display: none;
-    }
-
-    .sidebar-toggle i {
-      transform: rotate(180deg);
-    }
-  }
-
-  .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    h2 {
-      margin: 0;
-      font-size: 1.5rem;
-      color: var(--primary);
-    }
-
-    .sidebar-toggle {
-      background: none;
-      border: none;
-      font-size: 1.25rem;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: color 0.2s ease;
-    }
-  }
-
-  .sidebar-nav {
-    padding: 1rem 0;
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      padding: 0.75rem 1.5rem;
-      color: var(--text-secondary);
-      text-decoration: none;
-      transition: background 0.2s ease;
-
-      &.active {
-        background: var(--primary);
-        color: #ffffff;
-      }
-
-      &:hover {
-        background: var(--background);
-        color: var(--primary);
-      }
-
-      i {
-        margin-right: 1rem;
-        font-size: 1.25rem;
-      }
-
-      span {
-        font-size: 1rem;
-        font-weight: 500;
-      }
-    }
-  }
-}
-
 .dashboard-content {
-  margin-left: var(--sidebar-width);
   padding: 2rem;
   flex-grow: 1;
-  transition: margin-left 0.3s ease;
 
-  .sidebar-collapsed ~ & {
-    margin-left: var(--sidebar-collapsed-width);
-  }
-
-  .role-tabs {
+  .status-tabs {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 2rem;
@@ -531,21 +419,26 @@ onMounted(() => {
         vertical-align: middle;
       }
 
-      .role-badge {
+      .status-badge {
         padding: 0.5rem 1rem;
         border-radius: 12px;
         font-size: 0.875rem;
         font-weight: 500;
         text-transform: capitalize;
 
-        &.doctor {
+        &.scheduled {
           background: #e7f1ff;
           color: var(--primary);
         }
 
-        &.patient {
-          background: #f8f9fa;
-          color: var(--text-secondary);
+        &.cancelled {
+          background: #f8d7da;
+          color: var(--danger);
+        }
+
+        &.completed {
+          background: #d4edda;
+          color: var(--success);
         }
       }
 
@@ -656,26 +549,6 @@ onMounted(() => {
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
-
-    .p-button {
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: none;
-
-      &.p-button-danger {
-        background: var(--danger);
-        color: #000000 !important;
-
-        &:hover {
-          background: #c82333;
-          color: #000000 !important;
-        }
-      }
-    }
   }
 
   .form-group {
@@ -705,7 +578,7 @@ onMounted(() => {
     }
 
     .select-field {
-      background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12  CRAIG15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 0.75rem center;
+      background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 0.75rem center;
       background-size: 12px;
       cursor: pointer;
     }
@@ -791,36 +664,76 @@ onMounted(() => {
     }
 
     &.danger-button {
-      background: var(--danger);
-      color: #ffffff;
+      background: transparent;
+      border: 1px solid var(--danger-color);
+      color: var(--danger-color);
+      transition: all 0.3s ease;
+      opacity: 1;
 
       &:hover {
-        background: #c82333;
+        background: var(--danger-color);
+        color: white;
+        opacity: 1;
+        transform: scale(1.05);
       }
     }
   }
 
   .delete-dialog {
     max-width: 400px;
+    border-radius: 10px;
+    transition: background 0.2s ease;
 
-    .modal-header h2 {
-      color: var(--danger);
+    &:hover {
+      background: #fdfdfd;
     }
 
-    .confirmation-content {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
+    .modal-header {
+      padding: 1rem 1.5rem;
 
-      .warning-icon {
-        font-size: 1.5rem;
+      h2 {
         color: var(--danger);
+        font-size: 1.25rem;
+      }
+    }
+
+    .modal-content {
+      padding: 1.5rem;
+
+      .confirmation-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .warning-icon {
+          font-size: 1.5rem;
+          color: var(--danger);
+          animation: pulse 2s infinite;
+        }
+
+        .confirmation-text {
+          font-size: 0.95rem;
+          line-height: 1.5;
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    .modal-footer {
+      padding: 1rem 1.5rem;
+
+      .danger-button {
+        color: var(--text-secondary);
+        background: var(--danger);
+        transition: all 0.3s ease;
+        opacity: 1;
+        border: none;
       }
 
-      .confirmation-text {
-        font-size: 0.95rem;
-        line-height: 1.5;
-        color: var(--text-primary);
+      .danger-button:hover {
+        color: #ffffff;
+        background: #c82333;
+        transform: scale(1.05);
       }
     }
   }
@@ -837,28 +750,10 @@ onMounted(() => {
   }
 
   @media (max-width: 768px) {
-    .sidebar {
-      width: var(--sidebar-collapsed-width);
-      &.sidebar-collapsed {
-        width: 0;
-        overflow: hidden;
-      }
-
-      .sidebar-header h2,
-      .nav-item span {
-        display: none;
-      }
-
-      &.sidebar-collapsed ~ .dashboard-content {
-        margin-left: 0;
-      }
-    }
-
     .dashboard-content {
-      margin-left: var(--sidebar-collapsed-width);
       padding: 1rem;
 
-      .role-tabs {
+      .status-tabs {
         flex-wrap: wrap;
         gap: 0.25rem;
 

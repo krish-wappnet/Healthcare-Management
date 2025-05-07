@@ -61,8 +61,9 @@ const navItems = computed(() => {
     case 'admin':
       return [
         { icon: 'pi pi-home', label: 'Dashboard', route: '/admin' },
-        { icon: 'pi pi-calendar', label: 'Appointments', route: '/admin/appointments' },
-        { icon: 'pi pi-file', label: 'Medical Reports', route: '/admin/medical-reports' },
+        { icon: 'pi pi-calendar-plus', label: 'Manage Appointments', route: '/admin/manage-appointments' },
+        { icon: 'pi pi-file', label: 'Manage Reports', route: '/admin/manage-reports' },
+        { icon: 'pi pi-desktop', label: 'Manage Devices', route: '/admin/manage-device' },
         { icon: 'pi pi-cog', label: 'Settings', route: '/admin/settings' }
       ]
     case 'doctor':

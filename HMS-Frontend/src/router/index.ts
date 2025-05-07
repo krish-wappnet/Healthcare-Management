@@ -11,6 +11,9 @@ const AdminDashboard = () => import('../views/admin/DashboardView.vue')
 const AdminUsers = () => import('../views/admin/UsersView.vue')
 const AdminAuditLogs = () => import('../views/admin/AuditLogsView.vue')
 const AdminSettings = () => import('../views/admin/SettingsView.vue')
+const ManageAppointments = () => import('../views/admin/ManageAppointment.vue')
+const ManageReports = () => import('../views/admin/ManageReports.vue')
+const ManageDevice = () => import('../views/admin/ManageDevice.vue')
 
 // Doctor routes
 const DoctorDashboard = () => import('../views/doctor/DashboardView.vue')
@@ -128,6 +131,27 @@ const router = createRouter({
       path: '/admin/settings',
       name: 'admin-settings',
       component: AdminSettings,
+      meta: { role: 'admin' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/admin/manage-appointments',
+      name: 'admin-manage-appointments',
+      component: ManageAppointments,
+      meta: { role: 'admin' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/admin/manage-reports',
+      name: 'admin-manage-reports',
+      component: ManageReports,
+      meta: { role: 'admin' },
+      beforeEnter: authGuard
+    },
+    {
+      path: '/admin/manage-device',
+      name: 'admin-manage-device',
+      component: ManageDevice,
       meta: { role: 'admin' },
       beforeEnter: authGuard
     },
