@@ -45,12 +45,20 @@
     <div v-else-if="filteredDoctors.length" class="doctors-list">
       <div v-for="doctor in filteredDoctors" :key="doctor._id" class="doctor-card">
         <div class="doctor-info">
-          <h2>
+          <div class="doctor-header">
+            <img 
+              :src="doctor.user?.profilePicture || 'https://via.placeholder.com/80'" 
+              alt="Doctor's profile"
+              class="doctor-avatar"
+              onerror="this.src='/default-avatar.png'"
+            />
+            <h2>
             Dr. {{ doctor.user?.firstName }} {{ doctor.user?.lastName }}
             <span class="rating" v-if="doctor.averageRating > 0">
               {{ doctor.averageRating }}★ ({{ doctor.totalRatings }})
             </span>
           </h2>
+          </div>
 
           <!-- Specialization -->
           <p class="specialization">{{ doctor.specialization }}</p>
@@ -583,6 +591,27 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.doctor-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.doctor-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.doctor-card h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
 .doctors-page {
   padding: 2rem;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);

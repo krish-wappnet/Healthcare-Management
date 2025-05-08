@@ -52,7 +52,7 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterDto.prototype, "role", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ required: false, example: 'https://example.com/profile.jpg' }),
+    (0, swagger_1.ApiProperty)({ required: false, example: 'https://imgs.search.brave.com/GkAIuY4uQSRlbLRd1mseDZNRj6Bx_rQEz2b-y_8gaf8/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pLnBp/bmltZy5jb20vb3Jp/Z2luYWxzLzJmLzE1/L2YyLzJmMTVmMmU4/YzY4OGIzMTIwZDNk/MjY0NjdiMDYzMzBj/LmpwZw' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
