@@ -105,7 +105,7 @@
                     class="form-input"
                     :class="{ 'input-error': errors.qualifications }"
                     @focus="clearError('qualifications')"
-                    @keyup.enter="addQualification"
+                    @keyup.enter.prevent="addQualification"
                   />
                 </div>
                 <div class="chips-container" v-if="form.qualifications.length">
@@ -419,6 +419,7 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
@@ -441,33 +442,47 @@ const isAuthenticated = computed(() => authStore.isAuthenticated && !!authStore.
 const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const form = reactive({
-  user: '',
   specialization: '',
-  licenseNumber: '' as string | undefined,
+  licenseNumber: '',
   qualifications: [] as string[],
-  experience: undefined as number | undefined,
-  bio: '' as string | undefined,
-  officeAddress: '' as string | undefined,
-  officePhone: '' as string | undefined,
-  consultationFee: undefined as number | undefined,
+  experience: 0,
+  consultationFee: 0,
+  officeAddress: '',
+  officePhone: '',
   isAvailableForAppointments: true,
-  workingHours: days.reduce((acc, day) => ({
-    ...acc,
-    [day]: { start: '', end: '', isAvailable: false }
-  }), {} as Record<string, { start: string; end: string; isAvailable: boolean }>),
+  workingHours: {
+    monday: { start: '', end: '', isAvailable: false },
+    tuesday: { start: '', end: '', isAvailable: false },
+    wednesday: { start: '', end: '', isAvailable: false },
+    thursday: { start: '', end: '', isAvailable: false },
+    friday: { start: '', end: '', isAvailable: false },
+    saturday: { start: '', end: '', isAvailable: false },
+    sunday: { start: '', end: '', isAvailable: false },
+  },
+});
+
+// Get user ID from auth store
+const userId = computed(() => {
+  if (!authStore.token) return null;
+  try {
+    const base64Url = authStore.token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const decodedToken = JSON.parse(window.atob(base64));
+    return decodedToken.sub; // sub typically contains the user ID in JWT
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
+  }
 });
 
 const errors: Record<string, string> = {
-  user: '',
   specialization: '',
   licenseNumber: '',
   qualifications: '',
   experience: '',
-  bio: '',
+  consultationFee: '',
   officeAddress: '',
   officePhone: '',
-  consultationFee: '',
-  isAvailableForAppointments: '',
   workingHours: '',
 };
 
@@ -493,8 +508,7 @@ onMounted(async () => {
   } else {
     try {
       const decoded = jwtDecode<JwtPayload>(authStore.token);
-      form.user = decoded.sub;
-      console.log('Set form.user from token sub:', form.user);
+      console.log('Set form.user from token sub:', decoded.sub);
     } catch (error) {
       console.error('Failed to decode token:', error);
       toast.add({
@@ -512,17 +526,12 @@ const clearError = (field: keyof typeof errors) => {
   errors[field] = '';
 };
 
-const addQualification = () => {
-  const qual = qualificationInput.value.trim();
-  if (qual && !form.qualifications.includes(qual)) {
-    form.qualifications.push(qual);
+const addQualification = (event: KeyboardEvent) => {
+  if (qualificationInput.value && !form.qualifications.includes(qualificationInput.value)) {
+    form.qualifications.push(qualificationInput.value);
     qualificationInput.value = '';
-    clearError('qualifications');
-  } else if (!qual) {
-    errors.qualifications = 'Please enter a valid qualification';
-  } else {
-    errors.qualifications = 'This qualification is already added';
   }
+  event.preventDefault();
 };
 
 const removeQualification = (index: number) => {
@@ -534,67 +543,57 @@ const validateForm = () => {
   console.log('Validating form');
   let isValid = true;
 
-  if (!form.user) {
-    errors.user = 'User ID is required';
-    isValid = false;
-  }
+  // Clear previous errors
+  Object.keys(errors).forEach(key => {
+    errors[key] = '';
+  });
 
-  if (!form.specialization.trim()) {
+  // Validate specialization
+  if (!form.specialization) {
     errors.specialization = 'Specialization is required';
     isValid = false;
   }
 
-  if (!form.licenseNumber?.trim()) {
+  // Validate license number
+  if (!form.licenseNumber) {
     errors.licenseNumber = 'License number is required';
     isValid = false;
   }
 
-  if (form.qualifications.length === 0) {
-    errors.qualifications = 'At least one qualification is required';
-    isValid = false;
-  }
-
+  // Validate experience
   if (!form.experience || form.experience < 0) {
-    errors.experience = 'Valid years of experience is required';
+    errors.experience = 'Experience must be a positive number';
     isValid = false;
   }
 
+  // Validate consultation fee
   if (!form.consultationFee || form.consultationFee < 0) {
-    errors.consultationFee = 'Valid consultation fee is required';
+    errors.consultationFee = 'Consultation fee must be a positive number';
     isValid = false;
   }
 
-  if (!form.officeAddress?.trim()) {
+  // Validate office address
+  if (!form.officeAddress) {
     errors.officeAddress = 'Office address is required';
     isValid = false;
   }
 
-  if (!form.officePhone?.trim() || !/^\+?[1-9]\d{1,14}$/.test(form.officePhone)) {
-    errors.officePhone = 'Valid office phone number is required';
+  // Validate office phone
+  if (!form.officePhone) {
+    errors.officePhone = 'Office phone number is required';
     isValid = false;
   }
 
-  let hasWorkingHours = false;
-  for (const day of days) {
-    const { start, end, isAvailable } = form.workingHours[day];
-    if (isAvailable) {
-      if (start && end) {
-        hasWorkingHours = true;
-        const startTime = new Date(`1970-01-01T${start}:00`);
-        const endTime = new Date(`1970-01-01T${end}:00`);
-        if (startTime >= endTime) {
-          errors.workingHours = `End time must be after start time for ${day}`;
-          isValid = false;
-        }
-      } else {
-        errors.workingHours = `Both start and end times are required for ${day} when available`;
-        isValid = false;
-      }
+  // Validate working hours
+  let hasAvailableHours = false;
+  Object.values(form.workingHours).forEach(day => {
+    if (day.isAvailable && day.start && day.end) {
+      hasAvailableHours = true;
     }
-  }
+  });
 
-  if (!hasWorkingHours) {
-    errors.workingHours = 'At least one day with working hours is required';
+  if (!hasAvailableHours) {
+    errors.workingHours = 'At least one day must have available working hours';
     isValid = false;
   }
 
@@ -608,10 +607,19 @@ const handleDoctorRegistration = async () => {
   console.log('Form data:', form);
   console.log('isLoading:', isLoading.value);
 
-  console.log('Form is valid. Submitting...');
-  console.log('Set isLoading to true');
+  // Prevent submission if form is invalid
+  if (!validateForm()) {
+    toast.add({
+      severity: 'error',
+      summary: 'Form Validation Failed',
+      detail: 'Please fix the highlighted errors and try again',
+      life: 5000,
+    });
+    return;
+  }
 
-    try {
+  isLoading.value = true;
+  try {
     // Format working hours
     const formattedWorkingHours = days.reduce((acc, day) => ({
       ...acc,
@@ -624,7 +632,7 @@ const handleDoctorRegistration = async () => {
 
     // Prepare the payload
     const payload = {
-      user: form.user,
+      user: userId.value,
       specialization: form.specialization,
       licenseNumber: form.licenseNumber,
       qualifications: form.qualifications,
@@ -638,8 +646,8 @@ const handleDoctorRegistration = async () => {
 
     console.log('Sending payload:', payload);
 
-    // Send the API request
-    const response = await axios.post('http://localhost:3000/doctors', payload);
+    // Send the API request with authentication
+    const response = await apiClient.post('/doctors', payload);
     console.log('Response:', response.data);
 
     // Reset the form
