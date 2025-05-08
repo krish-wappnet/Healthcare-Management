@@ -18,17 +18,29 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const bcrypt = require("bcrypt");
 const user_schema_1 = require("./schemas/user.schema");
+const cloudinary_config_1 = require("../config/cloudinary.config");
 let UsersService = class UsersService {
-    constructor(userModel) {
+    constructor(userModel, cloudinaryService) {
         this.userModel = userModel;
+        this.cloudinaryService = cloudinaryService;
     }
-    async create(createUserDto) {
+    async create(createUserDto, profilePicture) {
         const { email } = createUserDto;
         console.log('Creating user with payload:', createUserDto);
         const existingUser = await this.userModel.findOne({ email }).exec();
         if (existingUser) {
             console.log(`User with email ${email} already exists`);
             throw new common_1.ConflictException('Email already in use');
+        }
+        if (profilePicture) {
+            try {
+                const imageUrl = await this.cloudinaryService.uploadImage(profilePicture);
+                createUserDto.profilePicture = imageUrl;
+            }
+            catch (error) {
+                console.error('Error uploading profile picture:', error);
+                throw new Error('Failed to upload profile picture');
+            }
         }
         const newUser = new this.userModel(createUserDto);
         try {
@@ -103,7 +115,7 @@ let UsersService = class UsersService {
             throw error;
         }
     }
-    async update(id, updateUserDto) {
+    async update(id, updateUserDto, profilePicture) {
         if (updateUserDto.email) {
             const existingUser = await this.userModel.findOne({
                 email: updateUserDto.email,
@@ -111,6 +123,16 @@ let UsersService = class UsersService {
             }).exec();
             if (existingUser) {
                 throw new common_1.ConflictException('Email already in use');
+            }
+        }
+        if (profilePicture) {
+            try {
+                const imageUrl = await this.cloudinaryService.uploadImage(profilePicture);
+                updateUserDto.profilePicture = imageUrl;
+            }
+            catch (error) {
+                console.error('Error uploading profile picture:', error);
+                throw new Error('Failed to upload profile picture');
             }
         }
         if (updateUserDto.password) {
@@ -140,6 +162,7 @@ exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        cloudinary_config_1.CloudinaryConfigService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

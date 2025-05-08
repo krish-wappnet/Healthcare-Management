@@ -5,7 +5,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);
-    create(createUserDto: CreateUserDto): Promise<import("./schemas/user.schema").User>;
+    create(createUserDto: CreateUserDto, profilePicture: Express.Multer.File): Promise<import("./schemas/user.schema").User>;
     findAll(paginationDto: PaginationDto): Promise<{
         data: import("./schemas/user.schema").User[];
         total: number;
@@ -13,6 +13,6 @@ export declare class UsersController {
         limit: number;
     }>;
     findOne(id: string): Promise<import("./schemas/user.schema").User>;
-    update(id: string, updateUserDto: UpdateUserDto): Promise<import("./schemas/user.schema").User>;
+    update(id: string, updateUserDto: UpdateUserDto, profilePicture: Express.Multer.File): Promise<import("./schemas/user.schema").User>;
     remove(id: string): Promise<import("./schemas/user.schema").User>;
 }

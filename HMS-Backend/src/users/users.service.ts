@@ -7,14 +7,16 @@ import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { CloudinaryConfigService } from '../config/cloudinary.config';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private cloudinaryService: CloudinaryConfigService,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto, profilePicture?: Express.Multer.File): Promise<User> {
     const { email } = createUserDto;
     
     console.log('Creating user with payload:', createUserDto); // Log payload
@@ -23,6 +25,17 @@ export class UsersService {
     if (existingUser) {
       console.log(`User with email ${email} already exists`); // Log conflict
       throw new ConflictException('Email already in use');
+    }
+
+    // Upload profile picture if provided
+    if (profilePicture) {
+      try {
+        const imageUrl = await this.cloudinaryService.uploadImage(profilePicture);
+        createUserDto.profilePicture = imageUrl;
+      } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        throw new Error('Failed to upload profile picture');
+      }
     }
   
     const newUser = new this.userModel(createUserDto);
@@ -109,7 +122,7 @@ export class UsersService {
     }
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(id: string, updateUserDto: UpdateUserDto, profilePicture?: Express.Multer.File): Promise<User> {
     // If updating email, check if it already exists
     if (updateUserDto.email) {
       const existingUser = await this.userModel.findOne({ 
@@ -121,7 +134,18 @@ export class UsersService {
         throw new ConflictException('Email already in use');
       }
     }
-    
+
+    // Upload new profile picture if provided
+    if (profilePicture) {
+      try {
+        const imageUrl = await this.cloudinaryService.uploadImage(profilePicture);
+        updateUserDto.profilePicture = imageUrl;
+      } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        throw new Error('Failed to upload profile picture');
+      }
+    }
+
     // If updating password, hash it
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);

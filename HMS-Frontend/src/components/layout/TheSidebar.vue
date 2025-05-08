@@ -235,7 +235,7 @@ const handleLogout = async () => {
     align-items: center;
     justify-content: space-between;
     padding: var(--space-3);
-    background: linear-gradient(135deg, var(--primary-light) 0%, white 100%);
+    background: white;
     border-bottom: 1px solid var(--neutral-200);
 
     .logo {
@@ -269,11 +269,27 @@ const handleLogout = async () => {
         font-weight: 700;
         color: var(--primary-dark);
         margin: 0;
-        transition: color var(--transition-fast);
+        transition: all var(--transition-fast);
+        position: relative;
+        overflow: hidden;
 
         &:hover {
           color: var(--primary);
+          transform: scale(1.05);
+          text-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+
+          &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            animation: glow 1.5s infinite;
+          }
         }
+      }
       }
     }
 
@@ -547,7 +563,7 @@ const handleLogout = async () => {
       }
     }
   }
-}
+  
 
 .sidebar-backdrop {
   position: fixed;

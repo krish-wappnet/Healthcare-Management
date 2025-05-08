@@ -3,10 +3,12 @@ import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { CloudinaryConfigService } from '../config/cloudinary.config';
 export declare class UsersService {
     private userModel;
-    constructor(userModel: Model<UserDocument>);
-    create(createUserDto: CreateUserDto): Promise<User>;
+    private cloudinaryService;
+    constructor(userModel: Model<UserDocument>, cloudinaryService: CloudinaryConfigService);
+    create(createUserDto: CreateUserDto, profilePicture?: Express.Multer.File): Promise<User>;
     findAll(paginationDto: PaginationDto): Promise<{
         data: User[];
         total: number;
@@ -15,7 +17,7 @@ export declare class UsersService {
     }>;
     findOne(id: string | Types.ObjectId): Promise<User>;
     findByEmail(email: string): Promise<any>;
-    update(id: string, updateUserDto: UpdateUserDto): Promise<User>;
+    update(id: string, updateUserDto: UpdateUserDto, profilePicture?: Express.Multer.File): Promise<User>;
     remove(id: string): Promise<User>;
     setRefreshToken(userId: string, refreshToken: string | null): Promise<void>;
 }
