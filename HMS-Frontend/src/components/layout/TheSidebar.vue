@@ -133,8 +133,8 @@ const handleLogout = async () => {
     <div class="sidebar-user">
       <div class="user-avatar">
         <img 
-          :src="user?.avatar || authStore.user?.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'" 
-          alt="User Avatar"
+          :src="user?.user?.profilePicture || authStore.user?.profilePicture || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'" 
+          alt="User Profile Picture"
         >
       </div>
       <div class="user-info">

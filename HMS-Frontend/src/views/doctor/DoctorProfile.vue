@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Card from 'primevue/card';
@@ -7,11 +7,13 @@ import Fieldset from 'primevue/fieldset';
 import Button from 'primevue/button';
 import Avatar from 'primevue/avatar';
 import ProgressSpinner from 'primevue/progressspinner';
+import Tooltip from 'primevue/tooltip';
 import { apiClient } from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 import dayjs from 'dayjs';
+import { debounce } from 'lodash';
 
-// Interface for profile data
+// Interface for doctor profile data
 interface DoctorProfile {
   _id: string;
   user: {
@@ -42,12 +44,46 @@ interface DoctorProfile {
   updatedAt: string;
 }
 
+// Interface for API response
+interface UploadResponse {
+  profilePicture?: string;
+  message?: string;
+}
+
 // State
 const toast = useToast();
 const router = useRouter();
 const authStore = useAuthStore();
 const profile = ref<DoctorProfile | null>(null);
 const loading = ref(true);
+const isUploading = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFile = ref<File | null>(null);
+const imagePreview = ref<string | null>(null);
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+// Computed properties
+const fullName = computed(() => {
+  return profile.value
+    ? `${profile.value.user.firstName} ${profile.value.user.lastName}`
+    : 'N/A';
+});
+
+const avatarUrl = computed(() => {
+  return imagePreview.value || profile.value?.user.profilePicture || 'https://via.placeholder.com/100';
+});
+
+const isProfileComplete = computed(() => {
+  return !!(
+    profile.value?.specialization &&
+    profile.value?.licenseNumber &&
+    profile.value?.qualifications?.length &&
+    profile.value?.officeAddress &&
+    profile.value?.officePhone &&
+    profile.value?.consultationFee &&
+    profile.value?.bio
+  );
+});
 
 // Fetch doctor profile
 const fetchProfile = async () => {
@@ -63,12 +99,15 @@ const fetchProfile = async () => {
   }
 
   loading.value = true;
-
   try {
     const response = await apiClient.get('/doctors/profile', {
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
     profile.value = response.data;
+    if (!profile.value?.user?.profilePicture) {
+      console.warn('No profile picture found, using placeholder.');
+      profile.value.user.profilePicture = 'https://via.placeholder.com/100';
+    }
   } catch (error: any) {
     console.error('Error fetching doctor profile:', error);
     toast.add({
@@ -91,14 +130,119 @@ const editProfile = () => {
   router.push('/doctor-registration');
 };
 
-// Change profile picture (placeholder)
-const changeProfilePicture = () => {
+// Handle file selection
+const handleFileSelect = debounce((event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    selectedFile.value = null;
+    imagePreview.value = null;
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    toast.add({
+      severity: 'error',
+      summary: 'Invalid File',
+      detail: 'Please select an image file (e.g., JPG, PNG).',
+      life: 3000,
+    });
+    selectedFile.value = null;
+    imagePreview.value = null;
+    return;
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    toast.add({
+      severity: 'error',
+      summary: 'File Too Large',
+      detail: 'Image must be smaller than 5MB.',
+      life: 3000,
+    });
+    selectedFile.value = null;
+    imagePreview.value = null;
+    return;
+  }
+
+  selectedFile.value = file;
+  imagePreview.value = URL.createObjectURL(file);
   toast.add({
     severity: 'info',
-    summary: 'Feature Coming Soon',
-    detail: 'Profile picture upload is under development.',
+    summary: 'File Selected',
+    detail: `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
     life: 3000,
   });
+}, 100);
+
+// Upload profile picture
+const uploadProfilePicture = async () => {
+  if (!selectedFile.value) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Please select an image file first.',
+      life: 3000,
+    });
+    return;
+  }
+
+  isUploading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append('profilePicture', selectedFile.value);
+
+    if (!profile.value?.user?._id) {
+      throw new Error('User ID not found');
+    }
+    const response = await apiClient.patch<UploadResponse>(`/users/${profile.value.user._id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${authStore.token}`,
+      },
+    });
+
+    if (response.data.profilePicture && profile.value?.user) {
+      profile.value.user.profilePicture = response.data.profilePicture;
+    }
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: response.data.message || 'Profile picture updated successfully',
+      life: 3000,
+    });
+
+    imagePreview.value = null;
+  } catch (error: any) {
+    console.error('Error uploading profile picture:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.response?.data?.message || 'Failed to upload profile picture',
+      life: 3000,
+    });
+  } finally {
+    isUploading.value = false;
+    selectedFile.value = null;
+    if (imagePreview.value) {
+      URL.revokeObjectURL(imagePreview.value);
+      imagePreview.value = null;
+    }
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
+  }
+};
+
+// Handle image load error
+const handleImageError = () => {
+  toast.add({
+    severity: 'error',
+    summary: 'Image Error',
+    detail: 'Failed to load profile picture.',
+    life: 3000,
+  });
+  imagePreview.value = null;
 };
 
 // Format date
@@ -123,32 +267,77 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="doctor-profile">
+  <div class="profile-container">
     <Card v-if="!loading" class="profile-card">
       <template #header>
         <div class="profile-header">
           <div class="avatar-container">
+            <img
+              v-if="avatarUrl"
+              :src="avatarUrl"
+              alt="Profile picture"
+              class="profile-avatar"
+              @error="handleImageError"
+            />
             <Avatar
-              :image="profile?.user.profilePicture || 'https://via.placeholder.com/100'"
-              size="xlarge"
+              v-else
+              :label="profile?.user?.firstName?.charAt(0) || 'D'"
               shape="circle"
+              size="xlarge"
               class="profile-avatar"
             />
-            <button
-              class="change-avatar-button"
-              @click="changeProfilePicture"
-              aria-label="Change profile picture"
-            >
-              <i class="pi pi-camera"></i>
-            </button>
+            <input
+              type="file"
+              ref="fileInput"
+              accept="image/*"
+              @change="handleFileSelect"
+              class="hidden"
+              aria-label="Select profile picture"
+            />
+            <div class="profile-picture-actions">
+              <button
+                class="change-avatar-button"
+                @click="fileInput?.click()"
+                aria-label="Add or change profile picture"
+                v-tooltip="'Add/Change Profile Picture'"
+              >
+                <i class="pi pi-camera"></i>
+              </button>
+              <button
+                v-if="selectedFile"
+                class="upload-avatar-button"
+                @click="uploadProfilePicture"
+                :disabled="isUploading"
+                aria-label="Upload profile picture"
+                v-tooltip="'Upload Profile Picture'"
+              >
+                <ProgressSpinner
+                  v-if="isUploading"
+                  class="upload-spinner"
+                  style="width: 20px; height: 20px"
+                />
+                <i v-else class="pi pi-upload"></i>
+                <span v-if="isUploading" class="sr-only">Uploading...</span>
+              </button>
+            </div>
           </div>
           <div class="profile-info">
-            <h2>{{ profile?.user.firstName }} {{ profile?.user.lastName }}</h2>
+            <h2>{{ fullName }}</h2>
             <p class="specialization">{{ profile?.specialization || 'Not specified' }}</p>
             <p class="email">{{ profile?.user.email }}</p>
             <p class="status" :class="{ active: profile?.user.isActive }">
               {{ profile?.user.isActive ? 'Active' : 'Inactive' }}
             </p>
+          </div>
+          <div v-if="!isProfileComplete" class="profile-incomplete">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>Profile Incomplete</span>
+            <Button
+              icon="pi pi-pencil"
+              class="p-button-rounded p-button-warning p-button-text"
+              @click="editProfile"
+              aria-label="Edit profile to complete information"
+            />
           </div>
         </div>
       </template>
@@ -157,55 +346,68 @@ onMounted(async () => {
         <div class="profile-content">
           <!-- Professional Details -->
           <Fieldset legend="Professional Details" class="mb-4" :style="{ animationDelay: '0s' }">
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="label">License Number</span>
-                <span class="value">{{ profile?.licenseNumber || 'N/A' }}</span>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Specialization</span>
+                <span class="field-value">{{ profile?.specialization || 'N/A' }}</span>
               </div>
-              <div class="detail-item">
-                <span class="label">Qualifications</span>
-                <span class="value">{{ profile?.qualifications?.join(', ') || 'N/A' }}</span>
+              <div class="profile-field">
+                <span class="field-label">License Number</span>
+                <span class="field-value">{{ profile?.licenseNumber || 'N/A' }}</span>
               </div>
-              <div class="detail-item">
-                <span class="label">Experience</span>
-                <span class="value">{{ profile?.experience ? `${profile.experience} years` : 'N/A' }}</span>
+              <div class="profile-field">
+                <span class="field-label">Qualifications</span>
+                <span class="field-value">{{ profile?.qualifications?.join(', ') || 'N/A' }}</span>
               </div>
-              <div class="detail-item">
-                <span class="label">Consultation Fee</span>
-                <span class="value">{{ profile?.consultationFee ? `$${profile.consultationFee}` : 'N/A' }}</span>
+              <div class="profile-field">
+                <span class="field-label">Experience</span>
+                <span class="field-value">{{ profile?.experience ? `${profile.experience} years` : 'N/A' }}</span>
               </div>
-              <div class="detail-item">
-                <span class="label">Availability</span>
-                <span class="value">{{ profile?.isAvailableForAppointments ? 'Available' : 'Not available' }}</span>
+              <div class="profile-field">
+                <span class="field-label">Consultation Fee</span>
+                <span class="field-value">{{ profile?.consultationFee ? `$${profile.consultationFee}` : 'N/A' }}</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Availability</span>
+                <span class="field-value">{{ profile?.isAvailableForAppointments ? 'Available' : 'Not available' }}</span>
               </div>
             </div>
           </Fieldset>
 
           <!-- Contact Information -->
           <Fieldset legend="Contact Information" class="mb-4" :style="{ animationDelay: '0.1s' }">
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="label">Office Address</span>
-                <span class="value">{{ profile?.officeAddress || 'N/A' }}</span>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Office Address</span>
+                <span class="field-value">{{ profile?.officeAddress || 'N/A' }}</span>
               </div>
-              <div class="detail-item">
-                <span class="label">Office Phone</span>
-                <span class="value">{{ profile?.officePhone || 'N/A' }}</span>
+              <div class="profile-field">
+                <span class="field-label">Office Phone</span>
+                <span class="field-value">{{ profile?.officePhone || 'N/A' }}</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Email</span>
+                <span class="field-value">{{ profile?.user.email }}</span>
               </div>
             </div>
           </Fieldset>
 
           <!-- About -->
           <Fieldset legend="About" class="mb-4" :style="{ animationDelay: '0.2s' }">
-            <p class="bio-text">{{ profile?.bio || 'No bio provided' }}</p>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Bio</span>
+                <span class="field-value">{{ profile?.bio || 'No bio provided' }}</span>
+              </div>
+            </div>
           </Fieldset>
 
           <!-- Ratings -->
           <Fieldset legend="Ratings" class="mb-4" :style="{ animationDelay: '0.3s' }">
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="label">Average Rating</span>
-                <span class="value">{{ profile?.averageRating.toFixed(1) }} / 5 ({{ profile?.totalRatings }} reviews)</span>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Average Rating</span>
+                <span class="field-value">{{ profile?.averageRating.toFixed(1) }} / 5 ({{ profile?.totalRatings }} reviews)</span>
               </div>
             </div>
           </Fieldset>
@@ -219,7 +421,7 @@ onMounted(async () => {
             icon="pi pi-pencil"
             class="p-button-raised edit-profile-button"
             @click="editProfile"
-            aria-label="Edit Profile"
+            aria-label="Edit profile information"
           />
         </div>
       </template>
@@ -234,7 +436,7 @@ onMounted(async () => {
 
 <style scoped>
 :root {
-  --primary: #4f46e5; /* Aligned with patient profile and sidebar */
+  --primary: #4f46e5;
   --primary-dark: #3730a3;
   --primary-light: #a5b4fc;
   --neutral-100: #f3f4f6;
@@ -255,7 +457,7 @@ onMounted(async () => {
   --transition-normal: 0.3s ease-out;
 }
 
-.doctor-profile {
+.profile-container {
   padding: var(--space-3);
   background: var(--neutral-100);
   min-height: 100vh;
@@ -278,7 +480,7 @@ onMounted(async () => {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   margin-bottom: var(--space-3);
-  animation: fadeInUp 0.3s ease-out forwards;
+  animation: fadeInUp 0.4s ease-out forwards;
 }
 
 :deep(.p-fieldset-legend) {
@@ -306,44 +508,70 @@ onMounted(async () => {
   position: relative;
   width: 100px;
   height: 100px;
+  transition: transform var(--transition-fast);
+}
+
+.avatar-container:hover {
+  transform: scale(1.05);
 }
 
 .profile-avatar {
   width: 100%;
   height: 100%;
-  border: 2px dashed var(--primary);
+  border: 2px solid var(--primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: border var(--transition-fast);
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .avatar-container:hover .profile-avatar {
-  border: 3px dashed var(--primary-dark);
+  border: 3px solid var(--primary-dark);
 }
 
-.change-avatar-button {
+.hidden {
+  display: none;
+}
+
+.profile-picture-actions {
   position: absolute;
   bottom: 0;
-  right: 0;
+  left: 0;
+  transform: translate(-25%, 25%);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.change-avatar-button,
+.upload-avatar-button {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  background: var(--primary);
   border: none;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all var(--transition-fast), transform var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 4px;
 }
 
-.change-avatar-button:hover {
-  background: var(--primary);
+.change-avatar-button:hover,
+.upload-avatar-button:not(:disabled):hover {
+  background: var(--primary-dark);
   transform: scale(1.1);
 }
 
-.change-avatar-button i {
-  font-size: 16px;
+.change-avatar-button i,
+.upload-avatar-button i {
+  font-size: 18px;
+  color: white;
+}
+
+.upload-spinner {
+  width: 20px;
+  height: 20px;
 }
 
 .profile-info {
@@ -394,18 +622,31 @@ onMounted(async () => {
   color: #dc3545;
 }
 
+.profile-incomplete {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: #f59e0b;
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.profile-incomplete i {
+  font-size: 18px;
+}
+
 .profile-content {
   padding: var(--space-3);
 }
 
-.detail-grid {
+.profile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
 
-.detail-item {
+.profile-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -415,28 +656,21 @@ onMounted(async () => {
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.detail-item:hover {
+.profile-field:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.label {
+.field-label {
   font-weight: 500;
   color: var(--neutral-600);
   font-size: var(--font-sm);
 }
 
-.value {
+.field-value {
   font-size: var(--font-md);
   color: var(--neutral-800);
   font-weight: 500;
-}
-
-.bio-text {
-  margin: 0;
-  font-size: var(--font-md);
-  color: var(--neutral-800);
-  line-height: 1.6;
 }
 
 .profile-actions {
@@ -463,6 +697,17 @@ onMounted(async () => {
 
 .edit-profile-button:active {
   transform: translateY(0);
+}
+
+:deep(.p-button.p-button-text) {
+  color: var(--primary);
+  background: transparent;
+  border: none;
+  padding: var(--space-1);
+}
+
+:deep(.p-button.p-button-text:hover) {
+  background: var(--primary-light);
 }
 
 .loading-container {
@@ -500,7 +745,7 @@ onMounted(async () => {
 
 /* Responsive styles */
 @media (max-width: 768px) {
-  .doctor-profile {
+  .profile-container {
     padding: var(--space-2);
   }
 
@@ -516,24 +761,41 @@ onMounted(async () => {
     height: 80px;
   }
 
-  .change-avatar-button {
+  .profile-picture-actions {
+    bottom: 0;
+    left: 0;
+    transform: translate(-25%, 25%);
+    gap: var(--space-1);
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: var(--radius-md);
+    padding: 4px;
+  }
+
+  .change-avatar-button,
+  .upload-avatar-button {
     width: 28px;
     height: 28px;
   }
 
-  .change-avatar-button i {
+  .change-avatar-button i,
+  .upload-avatar-button i {
     font-size: 14px;
+  }
+
+  .upload-spinner {
+    width: 16px;
+    height: 16px;
   }
 
   .profile-info h2 {
     font-size: 1.5rem;
   }
 
-  .detail-grid {
+  .profile-grid {
     grid-template-columns: 1fr;
   }
 
-  .detail-item {
+  .profile-field {
     padding: var(--space-1);
   }
 

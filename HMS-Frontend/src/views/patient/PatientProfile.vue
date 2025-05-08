@@ -267,7 +267,6 @@ onMounted(async () => {
           <div class="avatar-container">
             <Avatar
               :image="profile?.user?.profilePicture || 'https://via.placeholder.com/100'"
-              :label="profile?.user?.firstName?.charAt(0) || 'P'"
               shape="circle"
               size="xlarge"
               class="profile-avatar"
